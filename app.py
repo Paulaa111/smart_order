@@ -458,10 +458,8 @@ if not st.session_state.submitted:
         if not fillings: errors.append("Wybierz co najmniej jedno nadzienie.")
 
         if errors:
-            for e in errors:
-                st.error(f"⚠️ {e}")
+            for e in errors: st.error(f"⚠️ {e}")
         else:
-            # 1. Przygotowanie danych do zapisu
             dane_do_zapisu = [
                 st.session_state.order_id, imie, telefon, email, str(odbiór), 
                 tier, porcje, floors, sponge, ", ".join(fillings), 
@@ -469,21 +467,21 @@ if not st.session_state.submitted:
                 napis, is_gluten, is_vegan, price
             ]
             
-            # 2. Próba zapisu do Arkusza
             try:
                 client = get_gspread_client()
-                # Zmień "Arkusz1" na nazwę swojej zakładki
-                sheet = client.open("Baza_Zamowien").worksheet("Arkusz1")
-                sheet.append_row(dane_do_zapisu)
+                client.open("Baza_Zamowien").worksheet("Arkusz1").append_row(dane_do_zapisu)
                 
-                # 3. Sukces - zapisujemy stan i odświeżamy
-                st.session_state.submitted = True
+                # ZAPISUJEMY WSZYSTKIE DANE DO SESJI
                 st.session_state.order_data = {
                     "id": st.session_state.order_id,
-                    "imie": imie,
-                    "telefon": telefon,
-                    "email": email
+                    "imie": imie, "telefon": telefon, "email": email,
+                    "odbiór": str(odbiór), "tier": tier, "porcje": porcje,
+                    "floors": floors, "sponge": sponge, "fillings": fillings,
+                    "decoration": decoration, "kolor": kolor.split(" (")[0],
+                    "extras": extras, "napis": napis, "gluten_free": is_gluten,
+                    "vegan": is_vegan, "price": price, "inspiracje": inspiracje
                 }
+                st.session_state.submitted = True
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Błąd zapisu do bazy: {e}")
@@ -496,67 +494,43 @@ else:
     <div class="success-box">
         <div style="font-size:3rem;margin-bottom:0.6rem">🎂</div>
         <h2>Zamówienie złożone!</h2>
-        <p style="opacity:0.75;font-size:0.95rem;margin-top:0.5rem">
-            Skontaktujemy się z Tobą w ciągu 24 godzin, aby potwierdzić szczegóły.
-        </p>
         <div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:0.7rem 1.5rem;display:inline-block;margin-top:1.2rem;">
             <div style="font-size:0.65rem;letter-spacing:0.25em;opacity:0.6;text-transform:uppercase;">Numer zamówienia</div>
-            <div style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:#A8F0AA;">{d["id"]}</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:#A8F0AA;">{d.get("id")}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("""<div class="section-card"><div class="section-title"><span class="section-num">✓</span> Podsumowanie</div>""", unsafe_allow_html=True)
 
-    st.markdown("""<div class="section-card">
-        <div class="section-title"><span class="section-num">✓</span> Podsumowanie zamówienia</div>
-    """, unsafe_allow_html=True)
-
-    # Podsumowanie - bezpieczne pobieranie danych
     rows = [
-        ("Klient", d.get("imie", "brak")),
-        ("Telefon", d.get("telefon", "brak")),
-        ("E-mail", d.get("email", "brak")),
-        ("Data odbioru", d.get("odbiór", "brak")),  # <--- To rozwiązuje Twój błąd!
-        ("Seria tortu", d.get("tier", "brak")),
-        ("Porcje", f'{d.get("porcje", 0)} szt.'),
-        ("Piętra", str(d.get("floors", 1))),
-        ("Biszkopt", d.get("sponge", "brak")),
-        ("Nadzienie", ", ".join(d.get("fillings", []))),
-        ("Dekoracja", d.get("decoration", "brak")),
-        ("Paleta kolorów", d.get("kolor", "brak")),
+        ("Klient", d.get("imie")), ("Telefon", d.get("telefon")), ("E-mail", d.get("email")),
+        ("Data odbioru", d.get("odbiór")), ("Seria tortu", d.get("tier")),
+        ("Porcje", f'{d.get("porcje")} szt.'), ("Piętra", str(d.get("floors"))),
+        ("Biszkopt", d.get("sponge")), ("Nadzienie", ", ".join(d.get("fillings", []))),
+        ("Dekoracja", d.get("decoration")), ("Paleta kolorów", d.get("kolor")),
         ("Dodatki", ", ".join(d.get("extras", [])) if d.get("extras") else "—"),
-        ("Napis", d.get("napis", "—")),
+        ("Napis", d.get("napis") if d.get("napis") else "—"),
         ("Bez glutenu", "Tak" if d.get("gluten_free") else "Nie"),
         ("Wegańskie", "Tak" if d.get("vegan") else "Nie"),
     ]
 
-    rows_html = "".join(
-        f'<div class="summary-row"><span class="summary-key">{k}</span><span class="summary-val">{v}</span></div>'
-        for k, v in rows
-    )
-    st.markdown(rows_html + "</div>", unsafe_allow_html=True)
+    for k, v in rows:
+        st.markdown(f'<div class="summary-row"><span class="summary-key">{k}</span><span class="summary-val">{v}</span></div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="price-box">
         <div class="price-label">Szacunkowa cena</div>
-        <div class="price-value">{fmt_price(d["price"])}</div>
-        <div class="price-sub">Ostateczna kwota zostanie potwierdzona telefonicznie</div>
+        <div class="price-value">{fmt_price(d.get("price", 0.0))}</div>
     </div>
     """, unsafe_allow_html=True)
 
     if d.get("inspiracje"):
-        st.markdown(f'<div class="info-box">💬 <strong>Uwagi klienta:</strong> {d["inspiracje"]}</div>', unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown(f'<div class="info-box">💬 <strong>Uwagi:</strong> {d.get("inspiracje")}</div>', unsafe_allow_html=True)
 
     if st.button("↩ Złóż nowe zamówienie"):
-        for key in ["submitted", "order_id", "order_data"]:
-            st.session_state.pop(key, None)
+        for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
-
-
-
-
-
-
+   
