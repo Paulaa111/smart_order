@@ -42,9 +42,10 @@ def send_email(order_data):
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(sender_email, password)
             server.sendmail(sender_email, receiver_email, message.as_string())
+        st.success("Mail wysłany!") # DODA TO
         return True
     except Exception as e:
-        st.error(f"Błąd SMTP: {e}")
+        st.error(f"BŁĄD WYSYŁKI MAILA: {e}") # TO CI POKAŻE DOKŁADNĄ PRZYCZYNĘ
         return False
 
 # --- FUNKCJA POŁĄCZENIA ---
@@ -584,6 +585,7 @@ else:
     if st.button("↩ Złóż nowe zamówienie"):
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
+
 
 
 
