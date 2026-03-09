@@ -10,42 +10,129 @@ from email.mime.multipart import MIMEMultipart
 
 # --- POD IMPORTAMI ---
 def send_email(order_data):
-    # Weryfikacja czy hasło istnieje przed próbą użycia
     if "EMAIL_PASSWORD" not in st.secrets:
-        st.error("Błąd: Nie znaleziono klucza 'EMAIL_PASSWORD' w ustawieniach Secrets!")
-        st.write("Dostępne klucze to:", list(st.secrets.keys()))
+        st.error("Brak klucza EMAIL_PASSWORD w Secrets!")
         return False
 
     sender_email = "letitcolor66@gmail.com"
+    owner_email = "paulaoktabska@gmail.com"  # ← zmień na maila właściciela cukierni
     password = st.secrets["EMAIL_PASSWORD"]
     receiver_email = order_data["email"]
 
-    message = MIMEMultipart()
-    message["From"] = sender_email
-    message["To"] = receiver_email
-    message["Subject"] = f"Potwierdzenie zamówienia {order_data['id']}"
+    # ── HELPER ────────────────────────────────────────────────────────────────
+    def build_message(to_addr, subject, body_text, body_html):
+        msg = MIMEMultipart("alternative")
+        msg["From"] = sender_email
+        msg["To"] = to_addr
+        msg["Subject"] = subject
+        msg.attach(MIMEText(body_text, "plain", "utf-8"))
+        msg.attach(MIMEText(body_html, "html", "utf-8"))
+        return msg
 
-    body = f"""
-    Cześć {order_data['imie']},
-    
-    Dziękujemy za złożenie zamówienia! 
-    Twój numer zamówienia to: {order_data['id']}.
-    
-    Cukiernik skontaktuje się z Tobą w ciągu 24h w celu potwierdzenia szczegółów.
-    
-    Pozdrawiamy,
-    Zespół Sweet Order
+    # ── MAIL DO KLIENTA ───────────────────────────────────────────────────────
+    client_text = f"""
+Cześć {order_data['imie']}!
+
+Dziękujemy za złożenie zamówienia w naszej cukierni 🎂
+
+Numer zamówienia: {order_data['id']}
+Data odbioru: {order_data['odbiór']}
+Szacunkowa cena: {order_data['price']:.2f} zł
+
+Cukiernik skontaktuje się z Tobą w ciągu 24h.
+
+Pozdrawiamy, Zespół Sweet Order
     """
-    message.attach(MIMEText(body, "plain"))
 
+    client_html = f"""
+<html><body style="font-family:Arial,sans-serif;color:#2C1A0E;background:#FDF8F3;padding:20px;">
+  <div style="max-width:500px;margin:0 auto;background:white;border-radius:16px;padding:32px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+    <h2 style="color:#C8956C;">Sweet Order 🎂</h2>
+    <p style="color:#7A5C45;font-size:0.85rem;">Cukiernia Artystyczna</p>
+    <p>Cześć <strong>{order_data['imie']}</strong>!</p>
+    <p>Dziękujemy za złożenie zamówienia. Oto szczegóły:</p>
+    <div style="background:#FDF8F3;border-radius:10px;padding:16px;margin:20px 0;">
+      <p><strong>Nr zamówienia:</strong> {order_data['id']}</p>
+      <p><strong>Data odbioru:</strong> {order_data['odbiór']}</p>
+      <p><strong>Seria tortu:</strong> {order_data['tier']}</p>
+      <p><strong>Porcje:</strong> {order_data['porcje']} szt. · {order_data['floors']} piętro/a</p>
+      <p><strong>Biszkopt:</strong> {order_data['sponge']}</p>
+      <p><strong>Nadzienie:</strong> {", ".join(order_data['fillings'])}</p>
+      <p><strong>Dekoracja:</strong> {order_data['decoration']}</p>
+      <p><strong>Dodatki:</strong> {", ".join(order_data['extras']) if order_data['extras'] else '—'}</p>
+      <p><strong>Bez glutenu:</strong> {'Tak' if order_data['gluten_free'] else 'Nie'} · <strong>Wegańskie:</strong> {'Tak' if order_data['vegan'] else 'Nie'}</p>
+      <p><strong>Szacunkowa cena:</strong> <span style="color:#C8956C;font-weight:bold;">{order_data['price']:.2f} zł</span></p>
+    </div>
+    <p style="background:#fff3e0;border-left:3px solid #C8956C;padding:10px 14px;border-radius:0 8px 8px 0;font-size:0.88rem;">
+      💳 Skontaktujemy się z Tobą w ciągu <strong>24h</strong> w celu potwierdzenia i ustalenia zaliczki (40%).
+    </p>
+    <p style="margin-top:24px;color:#7A5C45;font-size:0.85rem;">Pozdrawiamy,<br><strong>Zespół Sweet Order</strong></p>
+  </div>
+</body></html>
+    """
+
+    # ── MAIL DO WŁAŚCICIELA ───────────────────────────────────────────────────
+    napis_info = f"<p><strong>Napis na torcie:</strong> {order_data['napis']}</p>" if order_data.get('napis') else ""
+    inspiracje_info = f"<p><strong>Uwagi / inspiracje:</strong> {order_data['inspiracje']}</p>" if order_data.get('inspiracje') else ""
+
+    owner_html = f"""
+<html><body style="font-family:Arial,sans-serif;color:#2C1A0E;padding:20px;">
+  <div style="max-width:560px;margin:0 auto;background:white;border-radius:16px;padding:32px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+    <div style="background:#2C1A0E;border-radius:10px;padding:16px 24px;margin-bottom:24px;">
+      <h2 style="color:#F4C89A;margin:0;font-size:1.4rem;">🎂 Nowe zamówienie!</h2>
+      <p style="color:rgba(255,255,255,0.6);margin:4px 0 0;font-size:0.85rem;">Sweet Order · Panel właściciela</p>
+    </div>
+
+    <h3 style="color:#C8956C;border-bottom:1px solid #f0e0d0;padding-bottom:8px;">📋 Dane klienta</h3>
+    <p><strong>Imię i nazwisko:</strong> {order_data['imie']}</p>
+    <p><strong>Telefon:</strong> {order_data['telefon']}</p>
+    <p><strong>E-mail:</strong> {order_data['email']}</p>
+    <p><strong>Data odbioru:</strong> {order_data['odbiór']}</p>
+
+    <h3 style="color:#C8956C;border-bottom:1px solid #f0e0d0;padding-bottom:8px;margin-top:24px;">🎂 Szczegóły tortu</h3>
+    <p><strong>Nr zamówienia:</strong> <span style="background:#FDF8F3;padding:2px 8px;border-radius:6px;font-weight:bold;">{order_data['id']}</span></p>
+    <p><strong>Seria:</strong> {order_data['tier']}</p>
+    <p><strong>Porcje:</strong> {order_data['porcje']} szt.</p>
+    <p><strong>Piętra:</strong> {order_data['floors']}</p>
+    <p><strong>Biszkopt:</strong> {order_data['sponge']}</p>
+    <p><strong>Nadzienie:</strong> {", ".join(order_data['fillings'])}</p>
+    <p><strong>Dekoracja:</strong> {order_data['decoration']}</p>
+    <p><strong>Paleta kolorów:</strong> {order_data['kolor']}</p>
+    <p><strong>Dodatki:</strong> {", ".join(order_data['extras']) if order_data['extras'] else '—'}</p>
+    {napis_info}
+    <p><strong>Bez glutenu:</strong> {'✅ Tak' if order_data['gluten_free'] else 'Nie'}</p>
+    <p><strong>Wegańskie:</strong> {'✅ Tak' if order_data['vegan'] else 'Nie'}</p>
+    {inspiracje_info}
+
+    <div style="background:#2C1A0E;border-radius:10px;padding:16px 24px;margin-top:24px;text-align:center;">
+      <p style="color:rgba(255,255,255,0.6);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.2em;margin:0 0 4px;">Szacunkowa cena</p>
+      <p style="color:#F4C89A;font-size:2rem;margin:0;font-weight:300;">{order_data['price']:.2f} zł</p>
+    </div>
+  </div>
+</body></html>
+    """
+
+    owner_text = f"Nowe zamówienie {order_data['id']} od {order_data['imie']}, tel: {order_data['telefon']}, odbiór: {order_data['odbiór']}, cena: {order_data['price']:.2f} zł"
+
+    # ── WYSYŁKA ───────────────────────────────────────────────────────────────
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(sender_email, password)
-            server.sendmail(sender_email, receiver_email, message.as_string())
-        st.success("Mail wysłany!") # DODA TO
+
+            # Do klienta
+            msg_client = build_message(receiver_email, f"✦ Potwierdzenie zamówienia {order_data['id']} – Sweet Order", client_text, client_html)
+            server.sendmail(sender_email, receiver_email, msg_client.as_string())
+
+            # Do właściciela
+            msg_owner = build_message(owner_email, f"🎂 Nowe zamówienie {order_data['id']} – {order_data['imie']}", owner_text, owner_html)
+            server.sendmail(sender_email, owner_email, msg_owner.as_string())
+
         return True
+    except smtplib.SMTPAuthenticationError:
+        st.error("❌ Błąd logowania do Gmail. Sprawdź hasło aplikacji w Secrets.")
+        return False
     except Exception as e:
-        st.error(f"BŁĄD WYSYŁKI MAILA: {e}") # TO CI POKAŻE DOKŁADNĄ PRZYCZYNĘ
+        st.error(f"❌ Błąd wysyłki: {e}")
         return False
 
 
@@ -589,6 +676,7 @@ else:
     if st.button("↩ Złóż nowe zamówienie"):
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
+
 
 
 
