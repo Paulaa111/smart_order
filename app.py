@@ -48,18 +48,6 @@ def send_email(order_data):
         st.error(f"BŁĄD WYSYŁKI MAILA: {e}") # TO CI POKAŻE DOKŁADNĄ PRZYCZYNĘ
         return False
 
-# ... zapis do arkusza ...
-sheet.insert_row(dane_do_zapisu, nastepny_wiersz, value_input_option='USER_ENTERED')
-
-# DODAJ TO, ŻEBY ZOBACZYĆ CZY W OGÓLE TU DOCIERA:
-st.write("Próbuję wysłać maila do:", order_data.get("email"))
-
-wynik_wysylki = send_email(order_data)
-
-if wynik_wysylki:
-    st.success("Mail wysłany!")
-else:
-    st.error("Coś poszło nie tak z wysyłką maila - sprawdź logi w Streamlit Cloud!")
 
 # --- FUNKCJA POŁĄCZENIA ---
 def get_gspread_client():
@@ -601,6 +589,7 @@ else:
     if st.button("↩ Złóż nowe zamówienie"):
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
+
 
 
 
