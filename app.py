@@ -61,6 +61,7 @@ Pozdrawiamy, Zespół Sweet Order
       <p><strong>Dekoracja:</strong> {order_data['decoration']}</p>
       <p><strong>Dodatki:</strong> {", ".join(order_data['extras']) if order_data['extras'] else '—'}</p>
       <p><strong>Bez glutenu:</strong> {'Tak' if order_data['gluten_free'] else 'Nie'} · <strong>Wegańskie:</strong> {'Tak' if order_data['vegan'] else 'Nie'}</p>
+      {'<p><strong>Uwagi:</strong> ' + order_data['inspiracje'] + '</p>' if order_data.get('inspiracje') else ''}
       <p><strong>Szacunkowa cena:</strong> <span style="color:#1438A0;font-weight:bold;">{order_data['price']:.2f} zł</span></p>
     </div>
     <p style="background:#EDE5D8;border-left:2px solid #1438A0;padding:10px 14px;border-radius:0 4px 4px 0;font-size:0.88rem;">
@@ -466,7 +467,7 @@ div[data-baseweb="textarea"]:focus-within > div {
 
 /* BUTTON */
 .stButton > button {
-    background:  #6B2737 !important;
+    background: var(--navy) !important;
     color: var(--cream) !important;
     border: none !important;
     border-radius: 3px !important;
@@ -480,9 +481,9 @@ div[data-baseweb="textarea"]:focus-within > div {
     width: 100% !important;
 }
 .stButton > button:hover {
-    background: 8B3347 !important;
+    background: var(--navy-mid) !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 10px 36px rgba(107,39,55,0.3) !important;
+    box-shadow: 0 10px 36px rgba(20,56,160,0.3) !important;
 }
 
 /* SUCCESS */
@@ -743,7 +744,7 @@ if not st.session_state.submitted:
                 st.session_state.order_id, imie, telefon, email, str(odbiór),
                 tier, porcje, floors, sponge, ", ".join(fillings),
                 decoration, kolor.split(" (")[0], ", ".join(extras),
-                napis, is_gluten, is_vegan, price
+                napis, is_gluten, is_vegan, price, inspiracje
             ]
 
             order_data = {
@@ -819,5 +820,3 @@ else:
     if st.button("↩ Złóż nowe zamówienie"):
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
-
-
