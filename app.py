@@ -10,11 +10,42 @@ from email.mime.multipart import MIMEMultipart
 
 # --- POD IMPORTAMI ---
 def send_email(order_data):
+    # Weryfikacja czy hasło istnieje przed próbą użycia
+    if "EMAIL_PASSWORD" not in st.secrets:
+        st.error("Błąd: Nie znaleziono klucza 'EMAIL_PASSWORD' w ustawieniach Secrets!")
+        st.write("Dostępne klucze to:", list(st.secrets.keys()))
+        return False
+
     sender_email = "letitcolor66@gmail.com"
     password = st.secrets["EMAIL_PASSWORD"]
     receiver_email = order_data["email"]
 
-    # ... (cała reszta kodu funkcji send_email) ...
+    message = MIMEMultipart()
+    message["From"] = sender_email
+    message["To"] = receiver_email
+    message["Subject"] = f"Potwierdzenie zamówienia {order_data['id']}"
+
+    body = f"""
+    Cześć {order_data['imie']},
+    
+    Dziękujemy za złożenie zamówienia! 
+    Twój numer zamówienia to: {order_data['id']}.
+    
+    Cukiernik skontaktuje się z Tobą w ciągu 24h w celu potwierdzenia szczegółów.
+    
+    Pozdrawiamy,
+    Zespół Sweet Order
+    """
+    message.attach(MIMEText(body, "plain"))
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender_email, password)
+            server.sendmail(sender_email, receiver_email, message.as_string())
+        return True
+    except Exception as e:
+        st.error(f"Błąd SMTP: {e}")
+        return False
 
 # --- FUNKCJA POŁĄCZENIA ---
 def get_gspread_client():
@@ -575,6 +606,7 @@ if st.button("Wyślij testowy e-mail"):
     except Exception as e:
         st.error(f"❌ Błąd wysyłki: {e}")
    
+
 
 
 
