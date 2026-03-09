@@ -10,7 +10,7 @@ from email.mime.multipart import MIMEMultipart
 
 # --- POD IMPORTAMI ---
 def send_email(order_data):
-    sender_email = "TWOJ_MAIL@gmail.com"
+    sender_email = "letitcolor66@gmail.com"
     password = st.secrets["EMAIL_PASSWORD"]
     receiver_email = order_data["email"]
 
@@ -575,6 +575,7 @@ if st.button("Wyślij testowy e-mail"):
     except Exception as e:
         st.error(f"❌ Błąd wysyłki: {e}")
    
+
 
 
 
