@@ -437,7 +437,7 @@ if not st.session_state.submitted:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── SUBMIT ────────────────────────────────────────────────────────────────
-   if st.button("✦ Złóż zamówienie"):
+  if st.button("✦ Złóż zamówienie"):
         errors = []
         if not imie.strip(): errors.append("Podaj imię i nazwisko.")
         if not telefon.strip(): errors.append("Podaj numer telefonu.")
@@ -448,7 +448,7 @@ if not st.session_state.submitted:
             for e in errors:
                 st.error(f"⚠️ {e}")
         else:
-            # 1. Przygotowanie danych do zapisu w wierszu
+            # 1. Przygotowanie danych do zapisu
             dane_do_zapisu = [
                 st.session_state.order_id, imie, telefon, email, str(odbiór), 
                 tier, porcje, floors, sponge, ", ".join(fillings), 
@@ -459,18 +459,17 @@ if not st.session_state.submitted:
             # 2. Próba zapisu do Arkusza
             try:
                 client = get_gspread_client()
-                # Zmień "Arkusz1" na nazwę swojej zakładki, jeśli jest inna
+                # Zmień "Arkusz1" na nazwę swojej zakładki
                 sheet = client.open("Baza_Zamowien").worksheet("Arkusz1")
                 sheet.append_row(dane_do_zapisu)
                 
-                # 3. Jeśli zapis się udał, robimy to co wcześniej:
+                # 3. Sukces - zapisujemy stan i odświeżamy
                 st.session_state.submitted = True
                 st.session_state.order_data = {
                     "id": st.session_state.order_id,
                     "imie": imie,
                     "telefon": telefon,
-                    "email": email,
-                    # ... (reszta Twoich pól)
+                    "email": email
                 }
                 st.rerun()
             except Exception as e:
@@ -541,4 +540,5 @@ else:
         for key in ["submitted", "order_id", "order_data"]:
             st.session_state.pop(key, None)
         st.rerun()
+
 
