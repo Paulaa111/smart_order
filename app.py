@@ -482,7 +482,7 @@ div[data-baseweb="textarea"]:focus-within > div {
 .stButton > button:hover {
     background: 8B3347 !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 10px 36px rgba(20,56,160,0.3) !important;
+    box-shadow: 0 10px 36px rgba(107,39,55,0.3) !important;
 }
 
 /* SUCCESS */
@@ -819,4 +819,5 @@ else:
     if st.button("↩ Złóż nowe zamówienie"):
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
+
 
