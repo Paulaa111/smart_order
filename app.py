@@ -1,6 +1,17 @@
 import streamlit as st
-from datetime import datetime, timedelta
-import random
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import json
+
+# --- FUNKCJA POŁĄCZENIA ---
+def get_gspread_client():
+    # Pobieranie kluczy z Streamlit Secrets
+    creds_dict = st.secrets["gcp_service_account"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        creds_dict, 
+        ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+    )
+    return gspread.authorize(creds)
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -540,6 +551,7 @@ else:
         for key in ["submitted", "order_id", "order_data"]:
             st.session_state.pop(key, None)
         st.rerun()
+
 
 
 
