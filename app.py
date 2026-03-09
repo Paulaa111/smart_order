@@ -248,7 +248,7 @@ html, body, [data-testid="stAppViewContainer"] {
     position: absolute;
     top: 0; left: 50%;
     transform: translateX(-50%);
-    width: 1px; height: 70px;
+    width: 1px; height: 40px;
     background: linear-gradient(to bottom, transparent, var(--navy));
 }
 .hero-tag {
@@ -352,6 +352,7 @@ html, body, [data-testid="stAppViewContainer"] {
 .stTextArea > div > div > textarea:focus {
     border-color: var(--navy) !important;
     box-shadow: 0 0 0 3px rgba(20,56,160,0.08) !important;
+    outline: none !important;
 }
 .stSelectbox > div > div {
     background: var(--cream) !important;
@@ -371,7 +372,9 @@ html, body, [data-testid="stAppViewContainer"] {
     font-weight: 600 !important;
     font-size: 0.78rem !important;
 }
-.stSlider > div > div > div > div { background: var(--navy) !important; }
+.stSlider > div > div > div > div { background: #6B2737 !important; }
+.stSlider [data-testid="stThumbValue"] { color: #6B2737 !important; }
+.stSlider [aria-valuenow] { accent-color: #6B2737 !important; }
 .stSlider > div > div > div { background: var(--cream-dark) !important; }
 
 /* LABELS */
@@ -437,6 +440,28 @@ label, [data-testid="stWidgetLabel"] p {
     margin-top: 0.6rem;
     font-weight: 400;
     letter-spacing: 0.1em;
+}
+
+/* NADPISANIE CZERWONYCH OBRAMÓWEK STREAMLIT */
+[data-baseweb="input"]:focus-within,
+[data-baseweb="textarea"]:focus-within,
+[data-baseweb="select"]:focus-within {
+    border-color: var(--navy) !important;
+    box-shadow: 0 0 0 3px rgba(20,56,160,0.08) !important;
+}
+div[data-baseweb="input"]:focus-within > div,
+div[data-baseweb="textarea"]:focus-within > div {
+    border-color: var(--navy) !important;
+    background-color: #fff !important;
+}
+*:focus-visible {
+    outline: 2px solid var(--navy) !important;
+    outline-offset: 1px !important;
+    box-shadow: none !important;
+}
+.stTextInput [data-baseweb="input"]:focus-within,
+.stTextArea [data-baseweb="textarea"]:focus-within {
+    border-color: var(--navy) !important;
 }
 
 /* BUTTON */
