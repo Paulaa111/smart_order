@@ -585,27 +585,8 @@ else:
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
 
-# --- PANEL TESTOWY ---
-st.divider()
-st.subheader("🧪 Panel testowy")
-if st.button("Wyślij testowy e-mail"):
-    try:
-        # Tu wpisz adres, na który chcesz dostać maila (np. Twój prywatny)
-        test_email = "TWOJ_PRYWATNY_EMAIL@gmail.com" 
-        
-        test_data = {
-            "id": "TEST-999",
-            "imie": "Testerka",
-            "email": test_email
-        }
-        
-        # Wywołanie funkcji (upewnij się, że funkcja send_email jest zdefiniowana wyżej w pliku)
-        send_email(test_data)
-        
-        st.success(f"✅ E-mail wysłany na {test_email}! Sprawdź skrzynkę.")
-    except Exception as e:
-        st.error(f"❌ Błąd wysyłki: {e}")
-   
+
+
 
 
 
