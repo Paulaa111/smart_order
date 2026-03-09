@@ -512,22 +512,23 @@ else:
         <div class="section-title"><span class="section-num">✓</span> Podsumowanie zamówienia</div>
     """, unsafe_allow_html=True)
 
+    # Podsumowanie - bezpieczne pobieranie danych
     rows = [
-        ("Klient", d["imie"]),
-        ("Telefon", d["telefon"]),
-        ("E-mail", d["email"]),
-        ("Data odbioru", d["odbiór"]),
-        ("Seria tortu", d["tier"]),
-        ("Porcje", f'{d["porcje"]} szt.'),
-        ("Piętra", str(d["floors"])),
-        ("Biszkopt", d["sponge"]),
-        ("Nadzienie", ", ".join(d["fillings"])),
-        ("Dekoracja", d["decoration"]),
-        ("Paleta kolorów", d["kolor"]),
-        ("Dodatki", ", ".join(d["extras"]) if d["extras"] else "—"),
-        ("Napis", d["napis"] if d["napis"] else "—"),
-        ("Bez glutenu", "Tak" if d["gluten_free"] else "Nie"),
-        ("Wegańskie", "Tak" if d["vegan"] else "Nie"),
+        ("Klient", d.get("imie", "brak")),
+        ("Telefon", d.get("telefon", "brak")),
+        ("E-mail", d.get("email", "brak")),
+        ("Data odbioru", d.get("odbiór", "brak")),  # <--- To rozwiązuje Twój błąd!
+        ("Seria tortu", d.get("tier", "brak")),
+        ("Porcje", f'{d.get("porcje", 0)} szt.'),
+        ("Piętra", str(d.get("floors", 1))),
+        ("Biszkopt", d.get("sponge", "brak")),
+        ("Nadzienie", ", ".join(d.get("fillings", []))),
+        ("Dekoracja", d.get("decoration", "brak")),
+        ("Paleta kolorów", d.get("kolor", "brak")),
+        ("Dodatki", ", ".join(d.get("extras", [])) if d.get("extras") else "—"),
+        ("Napis", d.get("napis", "—")),
+        ("Bez glutenu", "Tak" if d.get("gluten_free") else "Nie"),
+        ("Wegańskie", "Tak" if d.get("vegan") else "Nie"),
     ]
 
     rows_html = "".join(
@@ -553,6 +554,7 @@ else:
         for key in ["submitted", "order_id", "order_data"]:
             st.session_state.pop(key, None)
         st.rerun()
+
 
 
 
