@@ -1,4 +1,5 @@
 import streamlit as st
+import random
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
@@ -551,6 +552,7 @@ else:
         for key in ["submitted", "order_id", "order_data"]:
             st.session_state.pop(key, None)
         st.rerun()
+
 
 
 
