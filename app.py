@@ -5,6 +5,14 @@ from oauth2client.service_account import ServiceAccountCredentials
 import json
 from datetime import datetime, timedelta  # <--- TO JEST KLUCZOWE
 
+# --- POD IMPORTAMI ---
+def send_email(order_data):
+    sender_email = "TWOJ_MAIL@gmail.com"
+    password = st.secrets["EMAIL_PASSWORD"]
+    receiver_email = order_data["email"]
+
+    # ... (cała reszta kodu funkcji send_email) ...
+
 # --- FUNKCJA POŁĄCZENIA ---
 def get_gspread_client():
     # Pobieranie kluczy z Streamlit Secrets
@@ -564,6 +572,7 @@ if st.button("Wyślij testowy e-mail"):
     except Exception as e:
         st.error(f"❌ Błąd wysyłki: {e}")
    
+
 
 
 
