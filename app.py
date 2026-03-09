@@ -469,7 +469,7 @@ if not st.session_state.submitted:
             
             try:
                 client = get_gspread_client()
-                client.open("Baza_Zamowien").worksheet("Arkusz1").append_row(dane_do_zapisu)
+                client.open("Baza_Zamowien").worksheet("Arkusz1").append_row(dane_do_zapisu, value_input_option='USER_ENTERED')        
                 
                 # ZAPISUJEMY WSZYSTKIE DANE DO SESJI
                 st.session_state.order_data = {
@@ -534,3 +534,4 @@ else:
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
    
+
