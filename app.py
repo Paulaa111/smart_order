@@ -437,43 +437,44 @@ if not st.session_state.submitted:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── SUBMIT ────────────────────────────────────────────────────────────────
-    if st.button("✦ Złóż zamówienie"):
+   if st.button("✦ Złóż zamówienie"):
         errors = []
-        if not imie.strip():
-            errors.append("Podaj imię i nazwisko.")
-        if not telefon.strip():
-            errors.append("Podaj numer telefonu.")
-        if not email.strip() or "@" not in email:
-            errors.append("Podaj poprawny adres e-mail.")
-        if not fillings:
-            errors.append("Wybierz co najmniej jedno nadzienie.")
+        if not imie.strip(): errors.append("Podaj imię i nazwisko.")
+        if not telefon.strip(): errors.append("Podaj numer telefonu.")
+        if not email.strip() or "@" not in email: errors.append("Podaj poprawny adres e-mail.")
+        if not fillings: errors.append("Wybierz co najmniej jedno nadzienie.")
 
         if errors:
             for e in errors:
                 st.error(f"⚠️ {e}")
         else:
-            st.session_state.submitted = True
-            st.session_state.order_data = {
-                "id": st.session_state.order_id,
-                "imie": imie,
-                "telefon": telefon,
-                "email": email,
-                "odbiór": str(odbiór),
-                "tier": tier,
-                "porcje": porcje,
-                "floors": floors,
-                "sponge": sponge,
-                "fillings": fillings,
-                "decoration": decoration,
-                "kolor": kolor.split(" (")[0],
-                "extras": extras,
-                "napis": napis,
-                "gluten_free": is_gluten,
-                "vegan": is_vegan,
-                "inspiracje": inspiracje,
-                "price": price,
-            }
-            st.rerun()
+            # 1. Przygotowanie danych do zapisu w wierszu
+            dane_do_zapisu = [
+                st.session_state.order_id, imie, telefon, email, str(odbiór), 
+                tier, porcje, floors, sponge, ", ".join(fillings), 
+                decoration, kolor.split(" (")[0], ", ".join(extras), 
+                napis, is_gluten, is_vegan, price
+            ]
+            
+            # 2. Próba zapisu do Arkusza
+            try:
+                client = get_gspread_client()
+                # Zmień "Arkusz1" na nazwę swojej zakładki, jeśli jest inna
+                sheet = client.open("Baza_Zamowien").worksheet("Arkusz1")
+                sheet.append_row(dane_do_zapisu)
+                
+                # 3. Jeśli zapis się udał, robimy to co wcześniej:
+                st.session_state.submitted = True
+                st.session_state.order_data = {
+                    "id": st.session_state.order_id,
+                    "imie": imie,
+                    "telefon": telefon,
+                    "email": email,
+                    # ... (reszta Twoich pól)
+                }
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Błąd zapisu do bazy: {e}")
 
 # ─── SUCCESS ──────────────────────────────────────────────────────────────────
 else:
@@ -540,3 +541,4 @@ else:
         for key in ["submitted", "order_id", "order_data"]:
             st.session_state.pop(key, None)
         st.rerun()
+
