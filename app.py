@@ -468,7 +468,6 @@ if not st.session_state.submitted:
             ]
             
             try:
-                try:
                 client = get_gspread_client()
                 sheet = client.open("Baza_Zamowien").worksheet("Arkusz1")
                 
@@ -544,6 +543,7 @@ else:
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
    
+
 
 
 
