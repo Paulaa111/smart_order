@@ -505,6 +505,7 @@ if not st.session_state.submitted:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    
     # ── SUBMIT ────────────────────────────────────────────────────────────────
     if st.button("✦ Złóż zamówienie"):
         errors = []
@@ -523,33 +524,35 @@ if not st.session_state.submitted:
                 napis, is_gluten, is_vegan, price
             ]
             
+            # Przygotowanie danych do sesji
+            order_data = {
+                "id": st.session_state.order_id,
+                "imie": imie, "telefon": telefon, "email": email,
+                "odbiór": str(odbiór), "tier": tier, "porcje": porcje,
+                "floors": floors, "sponge": sponge, "fillings": fillings,
+                "decoration": decoration, "kolor": kolor.split(" (")[0],
+                "extras": extras, "napis": napis, "gluten_free": is_gluten,
+                "vegan": is_vegan, "price": price, "inspiracje": inspiracje
+            }
+            
             try:
+                # 1. Zapis do Arkusza
                 client = get_gspread_client()
                 sheet = client.open("Baza_Zamowien").worksheet("Arkusz1")
-                
-                # 1. Sprawdzamy ile jest już wierszy
                 wszystkie_dane = sheet.get_all_values()
                 nastepny_wiersz = len(wszystkie_dane) + 1
-                
-                # 2. Wpisujemy dane w konkretny wiersz (od kolumny A)
                 sheet.insert_row(dane_do_zapisu, nastepny_wiersz, value_input_option='USER_ENTERED')
                 
-                # ... (reszta kodu bez zmian)        
+                # 2. Wysyłka maila
+                send_email(order_data)
                 
-                # ZAPISUJEMY WSZYSTKIE DANE DO SESJI
-                st.session_state.order_data = {
-                    "id": st.session_state.order_id,
-                    "imie": imie, "telefon": telefon, "email": email,
-                    "odbiór": str(odbiór), "tier": tier, "porcje": porcje,
-                    "floors": floors, "sponge": sponge, "fillings": fillings,
-                    "decoration": decoration, "kolor": kolor.split(" (")[0],
-                    "extras": extras, "napis": napis, "gluten_free": is_gluten,
-                    "vegan": is_vegan, "price": price, "inspiracje": inspiracje
-                }
+                # 3. Zapis do sesji i przeładowanie
+                st.session_state.order_data = order_data
                 st.session_state.submitted = True
                 st.rerun()
+                
             except Exception as e:
-                st.error(f"❌ Błąd zapisu do bazy: {e}")
+                st.error(f"❌ Błąd podczas zapisu lub wysyłki: {e}")
 
 # ─── SUCCESS ──────────────────────────────────────────────────────────────────
 else:
@@ -598,6 +601,7 @@ else:
     if st.button("↩ Złóż nowe zamówienie"):
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
+
 
 
 
