@@ -4,6 +4,9 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
 from datetime import datetime, timedelta  # <--- TO JEST KLUCZOWE
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # --- POD IMPORTAMI ---
 def send_email(order_data):
@@ -572,6 +575,7 @@ if st.button("Wyślij testowy e-mail"):
     except Exception as e:
         st.error(f"❌ Błąd wysyłki: {e}")
    
+
 
 
 
