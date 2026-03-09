@@ -466,7 +466,7 @@ div[data-baseweb="textarea"]:focus-within > div {
 
 /* BUTTON */
 .stButton > button {
-    background: var(--navy) !important;
+    background:  #6B2737 !important;
     color: var(--cream) !important;
     border: none !important;
     border-radius: 3px !important;
@@ -480,7 +480,7 @@ div[data-baseweb="textarea"]:focus-within > div {
     width: 100% !important;
 }
 .stButton > button:hover {
-    background: var(--navy-mid) !important;
+    background: 8B3347 !important;
     transform: translateY(-1px) !important;
     box-shadow: 0 10px 36px rgba(20,56,160,0.3) !important;
 }
@@ -819,3 +819,4 @@ else:
     if st.button("↩ Złóż nowe zamówienie"):
         for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
         st.rerun()
+
