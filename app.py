@@ -437,7 +437,7 @@ if not st.session_state.submitted:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ── SUBMIT ────────────────────────────────────────────────────────────────
-  if st.button("✦ Złóż zamówienie"):
+    if st.button("✦ Złóż zamówienie"):
         errors = []
         if not imie.strip(): errors.append("Podaj imię i nazwisko.")
         if not telefon.strip(): errors.append("Podaj numer telefonu.")
@@ -540,5 +540,6 @@ else:
         for key in ["submitted", "order_id", "order_data"]:
             st.session_state.pop(key, None)
         st.rerun()
+
 
 
