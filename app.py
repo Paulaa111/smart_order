@@ -337,7 +337,7 @@ if not st.session_state.submitted:
         <div class="price-value">{fmt_price(price)}</div>
         <div class="price-sub">{porcje} porcji | {floors} {fl_label} | cena orientacyjna</div>
     </div>
-    <div class="info-box">💳 Ostateczna wycena po potwierdzeniu przez cukiernika. Zaliczka 40% przy złożeniu zamówienia.</div>
+    <div class="info-box">INFO: Ostateczna wycena po potwierdzeniu przez cukiernika. Zaliczka 40% przy złożeniu zamówienia.</div>
     """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
