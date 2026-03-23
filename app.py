@@ -415,7 +415,7 @@ else:
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("""<div class="section-card">
-        <div class="section-title"><span class="section-num">✓</span> Podsumowanie zamówienia</div>
+        <div class="section-title"><span class="section-num">&#10003;</span> Podsumowanie zamówienia</div>
     """, unsafe_allow_html=True)
 
     rows = [
