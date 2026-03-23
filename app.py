@@ -29,7 +29,7 @@ st.set_page_config(
     page_title="Sweet Order · Cukiernia",
     page_icon="🎂",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
