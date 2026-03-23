@@ -293,23 +293,44 @@ if not st.session_state.submitted:
     """, unsafe_allow_html=True)
 
     # ── SUBMIT
-    if st.button("✦ Złóż zamówienie"):
-        if imie and email and telefon and date_ok:
-            order = {
-                "id": st.session_state.order_id, "imie": imie, "telefon": telefon, "email": email,
-                "odbiór": str(odbiór), "tier": tier, "porcje": porcje, "floors": floors,
-                "sponge": sponge, "fillings": fillings, "decoration": decoration, "kolor": kolor,
-                "extras": extras, "napis": napis, "gluten_free": is_gluten, "vegan": is_vegan,
-                "inspiracje": inspiracje, "price": price
-            }
-            st.session_state.order_data = order
-            with st.spinner("Przetwarzanie..."):
-                save_to_sheets(order)
-                send_confirmation_emails(order)
-            st.session_state.submitted = True
-            st.rerun()
-        else:
-            st.error("⚠️ Wypełnij wszystkie dane i sprawdź datę.")
+if st.button("✦ Złóż zamówienie"):
+    if imie and email and telefon and date_ok:
+        order = {
+            "id": st.session_state.order_id, 
+            "imie": imie, 
+            "telefon": telefon, 
+            "email": email,
+            "odbiór": str(odbiór), 
+            "tier": tier, 
+            "porcje": porcje, 
+            "floors": floors,
+            "sponge": sponge, 
+            "fillings": fillings, 
+            "decoration": decoration, 
+            "kolor": kolor,
+            "extras": extras, 
+            "napis": napis, 
+            "gluten_free": is_gluten, 
+            "vegan": is_vegan,
+            "inspiracje": inspiracje, 
+            "price": price
+        }
+        st.session_state.order_data = order
+        
+        with st.spinner("Przetwarzanie..."):
+            # 1. Zapis do arkusza (stare)
+            save_to_sheets(order)
+            
+            # 2. NOWOŚĆ: Zapis do Upstash Redis
+            save_order_to_redis(order) 
+            
+            # 3. Wysyłka maili (stare)
+            send_confirmation_emails(order)
+            
+        st.session_state.submitted = True
+        st.rerun()
+    else:
+        st.error("⚠️ Wypełnij wszystkie dane i sprawdź datę.")
 
 # ─── SUCCESS SCREEN ───────────────────────────────────────────────────────────
 else:
