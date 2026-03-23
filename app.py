@@ -198,8 +198,9 @@ st.markdown("""
 <div style="text-align: center; padding: 2rem 0;">
     <div style="width: 60px; height: 60px; background: #630D16; color: white; border-radius: 50%; 
                 display: inline-flex; align-items: center; justify-content: center; 
-                font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 1rem;">S</div>
-    <h1>Sweet Order</h1>
+                font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 1rem;
+                border: 2px solid #E6DED5;">S</div>
+    <h1 style="font-family: 'Playfair Display', serif; color: #630D16; font-size: 3rem; margin: 0;">Sweet Order</h1>
     <p style="text-transform: uppercase; letter-spacing: 3px; font-size: 0.7rem; color: #8C7E7E;">Premium Cake Experience</p>
 </div>
 """, unsafe_allow_html=True)
