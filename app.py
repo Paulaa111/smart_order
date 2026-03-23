@@ -294,61 +294,81 @@ if not st.session_state.submitted:
 
     # ── SUBMIT
 if st.button("✦ Złóż zamówienie"):
-    if imie and email and telefon and date_ok:
-        order = {
-            "id": st.session_state.order_id, 
-            "imie": imie, 
-            "telefon": telefon, 
-            "email": email,
-            "odbiór": str(odbiór), 
-            "tier": tier, 
-            "porcje": porcje, 
-            "floors": floors,
-            "sponge": sponge, 
-            "fillings": fillings, 
-            "decoration": decoration, 
-            "kolor": kolor,
-            "extras": extras, 
-            "napis": napis, 
-            "gluten_free": is_gluten, 
-            "vegan": is_vegan,
-            "inspiracje": inspiracje, 
-            "price": price
-        }
-        st.session_state.order_data = order
-        
-        with st.spinner("Przetwarzanie..."):
-            # 1. Zapis do arkusza (stare)
-            save_to_sheets(order)
+        if imie and email and telefon and date_ok:
+            order = {
+                "id": st.session_state.order_id, 
+                "imie": imie, 
+                "telefon": telefon, 
+                "email": email,
+                "odbiór": str(odbiór), 
+                "tier": tier, 
+                "porcje": porcje, 
+                "floors": floors,
+                "sponge": sponge, 
+                "fillings": fillings, 
+                "decoration": decoration, 
+                "kolor": kolor,
+                "extras": extras, 
+                "napis": napis, 
+                "gluten_free": is_gluten, 
+                "vegan": is_vegan,
+                "inspiracje": inspiracje, 
+                "price": price
+            }
+            st.session_state.order_data = order
             
-            # 2. NOWOŚĆ: Zapis do Upstash Redis
-            save_order_to_redis(order) 
-            
-            # 3. Wysyłka maili (stare)
-            send_confirmation_emails(order)
-            
-        st.session_state.submitted = True
-        st.rerun()
-    else:
-        st.error("⚠️ Wypełnij wszystkie dane i sprawdź datę.")
+            with st.spinner("Przetwarzanie..."):
+                try:
+                    # 1. Zapis do arkusza
+                    save_to_sheets(order)
+                    # 2. Zapis do Upstash Redis
+                    save_order_to_redis(order) 
+                    # 3. Wysyłka maili
+                    send_confirmation_emails(order)
+                    
+                    st.session_state.submitted = True
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Wystąpił błąd podczas zapisu: {e}")
+        else:
+            st.error("⚠️ Wypełnij wszystkie dane i sprawdź datę.")
 
-# ─── SUCCESS SCREEN ───────────────────────────────────────────────────────────
+# ─── ELEGANCKIE PODSUMOWANIE (Zamiast Success Screen z balonami) ──────────────
 else:
     d = st.session_state.order_data
-    st.balloons()
+    
+    # Nagłówek bez balonów
     st.markdown(f"""
-    <div style="text-align: center; padding: 3rem 1rem;">
-        <div style="font-size:3rem; margin-bottom:0.6rem;">&#127824;</div>
-        <h2 style="font-family: 'Playfair Display', serif; color: #630D16;">Dziękujemy, {d['imie']}!</h2>
-        <p style="color: #8C7E7E;">TWOJE ZAMÓWIENIE {d['id']} ZOSTAŁO PRZYJĘTE</p>
+    <div style="text-align: center; padding: 2rem 0;">
+        <p style="letter-spacing: 3px; font-size: 0.8rem; color: #D4A373; text-transform: uppercase;">Potwierdzenie</p>
+        <h2 style="font-size: 2.5rem; color: #A26769;">Zamówienie {d['id']}</h2>
+        <p style="color: #4A4444;">Dziękujemy {d['imie']}, Twoje zgłoszenie zostało przyjęte.</p>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("""<div class="section-card"><div class="section-title"><span class="section-num">&#10003;</span> Podsumowanie</div>""", unsafe_allow_html=True)
-    for k, v in [("Klient", d["imie"]), ("Data", d["odbiór"]), ("Cena", fmt_price(d["price"]))]:
-        st.markdown(f'<div class="summary-row"><span class="summary-key">{k}</span><span>{v}</span></div>', unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Karta z danymi (2 kolumny, czysty styl)
+    with st.container(border=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 🍰 Tort")
+            st.write(f"**Seria:** {d['tier']}")
+            st.write(f"**Rozmiar:** {d['porcje']} porcji ({d['floors']}p.)")
+            st.write(f"**Smaki:** {d['sponge']} / {', '.join(d['fillings'])}")
+            st.write(f"**Styl:** {d['decoration']}")
+            if d['napis']: st.write(f"**Napis:** {d['napis']}")
+        
+        with col2:
+            st.markdown("### 📅 Szczegóły")
+            st.write(f"**Data odbioru:** {d['odbiór']}")
+            st.write(f"**Telefon:** {d['telefon']}")
+            st.write(f"**Dieta:** {'Bez glutenu' if d['gluten_free'] else ''} {'Wegański' if d['vegan'] else 'Standard'}")
+            st.markdown(f"## {d['price']:.2f} zł")
 
-    if st.button("↩ Nowe zamówienie"):
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.info("💡 Potwierdzenie wysłaliśmy na Twój e-mail. Skontaktujemy się wkrótce!")
+
+    if st.button("↩ Złóż nowe zamówienie"):
         st.session_state.submitted = False
+        st.session_state.order_id = f"SO-{random.randint(10000, 99999)}" # Nowy numer dla nowego zamówienia
         st.rerun()
