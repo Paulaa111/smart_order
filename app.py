@@ -51,7 +51,7 @@ html, body, [data-testid="stAppViewContainer"] {
 
 [data-testid="stHeader"] { background: transparent !important; }
 /* sidebar visible for admin */
-#MainMenu, footer { visibility: hidden; }
+#MainMenu, footer, header { visibility: hidden; }
 
 .block-container {
     max-width: 1100px !important;
@@ -653,7 +653,98 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
 
+    # ── ANKIETA ───────────────────────────────────────────────────────────────
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("""<div class="section-card">
+        <div class="section-title"><span class="section-num">💬</span> Chwila na feedback</div>
+    </div>""", unsafe_allow_html=True)
+
+    st.markdown('<p style="color:#7A5C45;font-size:0.9rem;margin-bottom:1rem">Bardzo zależy nam na Twojej opinii! Zajmie to dosłownie 30 sekund 🙏</p>', unsafe_allow_html=True)
+
+    if "survey_sent" not in st.session_state:
+        st.session_state.survey_sent = False
+
+    if not st.session_state.survey_sent:
+        col1, col2 = st.columns(2)
+        with col1:
+            czytelnosc = st.select_slider(
+                "📋 Jak oceniasz czytelność konfiguratora?",
+                options=["😕 Słabo", "😐 Ujdzie", "🙂 Dobrze", "😊 Bardzo dobrze", "🤩 Świetnie!"],
+                value="😊 Bardzo dobrze",
+            )
+            latwos = st.select_slider(
+                "🖱️ Jak łatwo było złożyć zamówienie?",
+                options=["😕 Trudno", "😐 Średnio", "🙂 W porządku", "😊 Łatwo", "🤩 Super łatwo!"],
+                value="😊 Łatwo",
+            )
+        with col2:
+            przydatnosc = st.select_slider(
+                "⭐ Czy konfiguratorjest przydatny?",
+                options=["😕 Niezbyt", "😐 Może być", "🙂 Tak", "😊 Zdecydowanie tak", "🤩 Niezbędny!"],
+                value="😊 Zdecydowanie tak",
+            )
+            polecenie = st.select_slider(
+                "🗣️ Czy polecisz nas znajomym?",
+                options=["😕 Raczej nie", "😐 Nie wiem", "🙂 Pewnie tak", "😊 Tak!", "🤩 Już polecam!"],
+                value="😊 Tak!",
+            )
+
+        co_zmienic = st.text_area(
+            "💡 Co moglibyśmy poprawić lub dodać?",
+            placeholder="Twoja sugestia jest dla nas cenna...",
+            height=80,
+        )
+
+        if st.button("✦ Wyślij opinię"):
+            # Save survey to sheets
+            survey_data = {
+                "order_id": d["id"],
+                "czytelnosc": czytelnosc,
+                "latwos": latwos,
+                "przydatnosc": przydatnosc,
+                "polecenie": polecenie,
+                "sugestie": co_zmienic,
+                "data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            }
+            try:
+                from integrations import get_sheets_client
+                import streamlit as st
+                gc = get_sheets_client()
+                sheet_id = st.secrets["google_sheets"]["spreadsheet_id"]
+                sh = gc.open_by_key(sheet_id)
+                # Drugi arkusz na ankiety
+                try:
+                    ws = sh.worksheet("Ankiety")
+                except:
+                    ws = sh.add_worksheet(title="Ankiety", rows=1000, cols=10)
+                    ws.insert_row(["ID zamówienia", "Czytelność", "Łatwość", "Przydatność", "Polecenie", "Sugestie", "Data"], 1)
+                ws.append_row([
+                    survey_data["order_id"],
+                    survey_data["czytelnosc"],
+                    survey_data["latwos"],
+                    survey_data["przydatnosc"],
+                    survey_data["polecenie"],
+                    survey_data["sugestie"],
+                    survey_data["data"],
+                ])
+            except Exception as e:
+                pass  # Nie blokujemy jeśli błąd
+            st.session_state.survey_sent = True
+            st.rerun()
+    else:
+        st.markdown("""
+        <div style="background:linear-gradient(135deg,#2C5A2E,#3A7A3C);border-radius:16px;
+            padding:1.5rem 2rem;text-align:center;color:white;margin-bottom:1rem">
+            <div style="font-size:2rem;margin-bottom:0.5rem">🙏</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:300">
+                Dziękujemy za opinię!</div>
+            <div style="font-size:0.85rem;opacity:0.75;margin-top:0.4rem">
+                Twój feedback pomaga nam się rozwijać</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("↩ Złóż nowe zamówienie"):
-        for key in ["submitted", "order_id", "order_data"]:
+        for key in ["submitted", "order_id", "order_data", "survey_sent"]:
             st.session_state.pop(key, None)
         st.rerun()
