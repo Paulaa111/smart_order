@@ -33,87 +33,107 @@ st.set_page_config(
 # ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Playfair+Display:wght@700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;600&family=Montserrat:wght@300;400&display=swap');
 
 :root {
-    --bg-light: #F9F6F2;
-    --burgundy: #630D16;
-    --text-dark: #2D2424;
-    --beige-dark: #E6DED5;
+    --primary: #A26769; /* Dusty Rose */
+    --gold: #D4A373;    /* Muted Gold */
+    --bg: #FFFDFB;      /* Off White */
+    --text: #4A4444;
 }
 
-/* 1. CAŁOŚĆ I TŁO */
+/* 1. CENTROWANIE CAŁEJ APLIKACJI */
+[data-testid="stAppViewBlockContainer"] {
+    max-width: 850px !important;
+    margin: 0 auto !important;
+    padding-top: 2rem !important;
+}
+
 .stApp {
-    background: var(--bg-light) !important;
-    font-family: 'Inter', sans-serif !important;
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+    font-family: 'Montserrat', sans-serif !important;
 }
 
-/* 2. KONIEC Z CZERWONĄ RAMKĄ (HARD RESET) */
-/* To celuje we wszystkie stany inputa: spoczynek, najechanie i kliknięcie */
-div[data-baseweb="input"], div[data-baseweb="textarea"], div[data-baseweb="select"], .stSelectbox {
-    border: 1px solid var(--beige-dark) !important;
-    border-radius: 4px !important;
-    transition: all 0.3s ease !important;
+/* 2. TYPOGRAFIA */
+h1, h2, h3, .section-title {
+    font-family: 'Cormorant Garamond', serif !important;
+    font-weight: 600 !important;
+    letter-spacing: 1px !important;
 }
 
-/* Stan po kliknięciu (Focus) - wymuszamy Burgund zamiast czerwonego/niebieskiego */
-div[data-baseweb="input"]:focus-within, div[data-baseweb="textarea"]:focus-within {
-    border-color: var(--burgundy) !important;
-    box-shadow: 0 0 0 2px rgba(99, 13, 22, 0.2) !important;
-}
-
-/* Usuwamy domyślne czerwone obramowanie Streamlita przy błędach walidacji */
-.st-ae { border-color: var(--beige-dark) !important; }
-
-/* 3. NOWOCZESNE KARTY (Luxury Look) */
+/* 3. KARTY SEKCJI - DELIKATNIEJSZE */
 .section-card {
     background: white !important;
-    border-left: 6px solid var(--burgundy) !important;
-    padding: 25px !important;
-    margin-bottom: 20px !important;
-    border-radius: 0 8px 8px 0 !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.05) !important;
+    border: 1px solid #F0EAD6 !important;
+    padding: 30px !important;
+    margin-bottom: 25px !important;
+    border-radius: 15px !important;
+    box-shadow: 0 4px 20px rgba(162, 103, 105, 0.05) !important;
 }
 
 .section-title {
-    font-family: 'Playfair Display', serif !important;
-    color: var(--burgundy) !important;
-    font-size: 1.6rem !important;
-    margin-bottom: 15px !important;
-    font-weight: 700 !important;
+    color: var(--primary) !important;
+    font-size: 1.8rem !important;
+    border-bottom: 1px solid #F0EAD6;
+    padding-bottom: 10px;
+    margin-bottom: 20px !important;
 }
 
-/* 4. PRZYCISKI */
+/* 4. INPUTY - BEZ CZERWONYCH RAMEK */
+div[data-baseweb="input"], div[data-baseweb="select"], .stTextArea textarea {
+    background-color: #FCFBF9 !important;
+    border: 1px solid #E8E2D6 !important;
+    border-radius: 8px !important;
+}
+
+div[data-baseweb="input"]:focus-within {
+    border-color: var(--gold) !important;
+    box-shadow: 0 0 0 2px rgba(212, 163, 115, 0.2) !important;
+}
+
+/* 5. PRZYCISK CTA - WYCENTROWANY I ELEGANCKI */
+div.stButton {
+    text-align: center !important;
+}
+
 .stButton > button {
-    background-color: var(--burgundy) !important;
+    background: var(--primary) !important;
     color: white !important;
     border: none !important;
-    padding: 15px 30px !important;
-    border-radius: 0px !important;
-    text-transform: uppercase !important;
+    padding: 12px 50px !important;
+    border-radius: 50px !important;
+    font-family: 'Montserrat', sans-serif !important;
+    font-size: 0.9rem !important;
+    font-weight: 400 !important;
     letter-spacing: 2px !important;
-    font-weight: 600 !important;
-    width: 100% !important;
+    transition: all 0.3s ease !important;
+    width: auto !important; /* Nie rozciąga się na całość */
+    margin: 0 auto !important;
+    display: block !important;
 }
 
 .stButton > button:hover {
-    background-color: #4a0a10 !important;
-    color: white !important;
+    background: var(--gold) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(212, 163, 115, 0.3) !important;
 }
 
-/* 5. BOX CENY */
+/* 6. BOX CENY - Bardziej subtelny */
 .price-box {
-    background: var(--burgundy) !important;
-    color: white !important;
-    padding: 40px !important;
+    background: #FDF8F5 !important;
+    border: 1px dashed var(--gold) !important;
+    color: var(--primary) !important;
+    padding: 30px !important;
+    border-radius: 15px !important;
     text-align: center !important;
-    margin: 30px 0 !important;
+    margin: 40px 0 !important;
 }
 
 .price-value {
-    font-family: 'Playfair Display', serif !important;
-    font-size: 4rem !important;
-    margin: 10px 0 !important;
+    font-family: 'Cormorant Garamond', serif !important;
+    font-size: 3.5rem !important;
+    font-weight: 600 !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -182,10 +202,10 @@ with st.sidebar:
 
 # ─── HERO ────────────────────────────────────────────────────────────────────
 st.markdown("""
-<div style="text-align: center; padding: 2rem 0;">
-    <div style="width: 60px; height: 60px; background: #630D16; color: white; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 1.5rem; margin-bottom: 1rem; border: 2px solid #E6DED5;">S</div>
-    <h1 style="font-family: 'Playfair Display', serif; color: #630D16; font-size: 3rem; margin: 0;">Sweet Order</h1>
-    <p style="text-transform: uppercase; letter-spacing: 3px; font-size: 0.7rem; color: #8C7E7E;">Premium Cake Experience</p>
+<div style="text-align: center; padding-bottom: 3rem;">
+    <p style="letter-spacing: 5px; font-size: 0.7rem; color: #D4A373; text-transform: uppercase; margin-bottom: 0;">Artisan Patisserie</p>
+    <h1 style="font-size: 4rem; color: #A26769; margin-top: -10px;">Sweet Order</h1>
+    <div style="width: 50px; height: 1px; background: #D4A373; margin: 10px auto;"></div>
 </div>
 """, unsafe_allow_html=True)
 
