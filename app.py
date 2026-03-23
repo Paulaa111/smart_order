@@ -8,8 +8,8 @@ from upstash_redis import Redis
 
 # Łączymy się z bazą (dane pobieramy z secrets Streamlit)
 redis = Redis(
-    url=st.secrets["UPSTASH_REDIS_REST_URL"], 
-    token=st.secrets["UPSTASH_REDIS_REST_TOKEN"]
+    url=st.secrets["redis-cli --tls -u redis://default:gQAAAAAAAUCeAAIncDE4ZGNhYzQxYjRkMTU0NjJmODdhY2QzZDk4YzMxMmE0MnAxODIwNzg@enabled-bison-82078.upstash.io:6379"], 
+    token=st.secrets["gQAAAAAAAUCeAAIncDE4ZGNhYzQxYjRkMTU0NjJmODdhY2QzZDk4YzMxMmE0MnAxODIwNzg"]
 )
 
 # FUNKCJA DO ZAPISYWANIA ZAMÓWIENIA W REDIS
