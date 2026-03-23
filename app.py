@@ -331,14 +331,18 @@ if not st.session_state.submitted:
     price = calc_price(tier, porcje, floors, fillings, decoration, extras, is_gluten, is_vegan)
     fl_label = "piętro" if floors == 1 else ("piętra" if floors < 5 else "pięter")
 
-    st.markdown(f"""
-    <div class="price-box">
-        <div class="price-label">Szacunkowa cena zamówienia</div>
-        <div class="price-value">{fmt_price(price)}</div>
-        <div class="price-sub">{porcje} porcji | {floors} {fl_label} | cena orientacyjna</div>
+    sst.markdown(f"""
+<div class="price-box">
+    <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8;">Szacowany koszt</div>
+    <div class="price-value">{val_price} zł</div>
+    <div style="font-size: 0.8rem; margin-top: 10px; opacity: 0.7;">
+        {porcje} porcji | {floors} piętra | cena orientacyjna
     </div>
-    <div class="info-box">INFO: Ostateczna wycena po potwierdzeniu przez cukiernika. Zaliczka 40% przy złożeniu zamówienia.</div>
-    """, unsafe_allow_html=True)
+</div>
+<div style="background: rgba(99, 13, 22, 0.05); border-left: 3px solid #630D16; padding: 10px; font-size: 0.85rem; color: #630D16;">
+    INFO: Ostateczna wycena po potwierdzeniu przez cukiernika. Zaliczka 40% przy złożeniu zamówienia.
+</div>
+""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
