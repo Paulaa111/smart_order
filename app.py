@@ -5,8 +5,6 @@ import json
 from pathlib import Path
 from integrations import save_to_sheets, send_confirmation_emails
 
-
-
 # ─── BLOCKED DATES STORAGE ───────────────────────────────────────────────────
 BLOCKED_DATES_FILE = Path(__file__).parent / "blocked_dates.json"
 
@@ -26,7 +24,7 @@ def is_date_blocked(d) -> bool:
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Sweet Order · Cukiernia",
+    page_title="Sweet Order | Cukiernia",
     page_icon="🎂",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -44,13 +42,11 @@ st.markdown("""
     --beige-dark: #E6DED5;
 }
 
-/* Tło i Fonty */
 .stApp, [data-testid="stAppViewContainer"] {
     background: var(--bg-light) !important;
     font-family: 'Inter', sans-serif;
 }
 
-/* Naprawa ramek - koniec z czerwonym kliknięciem! */
 div[data-baseweb="input"], div[data-baseweb="textarea"], div[data-baseweb="select"] {
     border: 1px solid var(--beige-dark) !important;
 }
@@ -59,7 +55,6 @@ div[data-baseweb="input"]:focus-within {
     box-shadow: 0 0 0 2px rgba(99, 13, 22, 0.1) !important;
 }
 
-/* Nowoczesne karty sekcji */
 .section-card {
     background: white;
     border-left: 5px solid var(--burgundy);
@@ -74,7 +69,19 @@ div[data-baseweb="input"]:focus-within {
     font-size: 1.4rem;
 }
 
-/* Burgundowy przycisk */
+.section-num {
+    background: var(--burgundy);
+    color: white;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    margin-right: 10px;
+}
+
 .stButton > button {
     background: var(--burgundy) !important;
     color: white !important;
@@ -83,7 +90,6 @@ div[data-baseweb="input"]:focus-within {
     letter-spacing: 2px;
 }
 
-/* Box z ceną */
 .price-box {
     background: var(--burgundy);
     color: white;
@@ -94,13 +100,27 @@ div[data-baseweb="input"]:focus-within {
     font-family: 'Playfair Display', serif;
     font-size: 3.5rem;
 }
-</style>
 
+.info-box {
+    background: #E6DED5;
+    padding: 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #eee;
+}
+.summary-key { font-weight: 600; color: #630D16; }
+</style>
+""", unsafe_allow_html=True)
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
 def fmt_price(val: float) -> str:
     return f"{val:.2f} zł"
-
 
 def calc_price(tier, porcje, floors, fillings, decoration, extras, is_gluten, is_vegan):
     base = {"Klasyczny": 120, "Premium": 200, "Artystyczny": 320, "Weselny": 500}[tier]
@@ -114,7 +134,6 @@ def calc_price(tier, porcje, floors, fillings, decoration, extras, is_gluten, is
     if is_vegan: base += 30
     return float(base)
 
-
 # ─── SESSION STATE ────────────────────────────────────────────────────────────
 if "submitted" not in st.session_state:
     st.session_state.submitted = False
@@ -122,9 +141,6 @@ if "order_id" not in st.session_state:
     st.session_state.order_id = f"SO-{random.randint(10000, 99999)}"
 if "admin_logged_in" not in st.session_state:
     st.session_state.admin_logged_in = False
-if "show_admin" not in st.session_state:
-    st.session_state.show_admin = False
-
 
 # ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
 ADMIN_PASSWORD = st.secrets.get("admin", {}).get("password", "cukiernia2024")
@@ -142,55 +158,27 @@ with st.sidebar:
     else:
         st.success("✅ Zalogowano")
         st.markdown("---")
-        st.markdown("#### 📅 Zarządzaj niedostępnymi datami")
-
+        st.markdown("#### 📅 Zarządzaj datami")
         blocked = load_blocked_dates()
-
-        # Add new blocked date
-        new_blocked = st.date_input(
-            "Zablokuj datę",
-            min_value=date.today(),
-            key="admin_new_date"
-        )
-        col_a, col_b = st.columns(2)
-        with col_a:
-            if st.button("➕ Zablokuj", use_container_width=True):
-                d_str = str(new_blocked)
-                if d_str not in blocked:
-                    blocked.append(d_str)
+        new_blocked = st.date_input("Zablokuj datę", min_value=date.today())
+        if st.button("➕ Zablokuj"):
+            d_str = str(new_blocked)
+            if d_str not in blocked:
+                blocked.append(d_str)
+                save_blocked_dates(blocked)
+                st.rerun()
+        
+        for d_str in sorted(blocked):
+            c1, c2 = st.columns([3, 1])
+            with c1: st.write(f"🚫 {d_str}")
+            with c2: 
+                if st.button("🗑", key=f"del_{d_str}"):
+                    blocked.remove(d_str)
                     save_blocked_dates(blocked)
-                    st.success(f"Zablokowano {d_str}")
                     st.rerun()
-                else:
-                    st.warning("Już zablokowana")
-
-        # Show and remove blocked dates
-        st.markdown("#### 🚫 Zablokowane daty")
-        if not blocked:
-            st.info("Brak zablokowanych dat")
-        else:
-            blocked_sorted = sorted(blocked)
-            for d_str in blocked_sorted:
-                c1, c2 = st.columns([3, 1])
-                with c1:
-                    # Format date nicely
-                    try:
-                        dt = datetime.strptime(d_str, "%Y-%m-%d")
-                        label = dt.strftime("%d.%m.%Y")
-                    except:
-                        label = d_str
-                    st.markdown(f"🔴 **{label}**")
-                with c2:
-                    if st.button("🗑", key=f"del_{d_str}", help="Odblokuj"):
-                        blocked.remove(d_str)
-                        save_blocked_dates(blocked)
-                        st.rerun()
-
-        st.markdown("---")
-        if st.button("🚪 Wyloguj", use_container_width=True):
+        if st.button("🚪 Wyloguj"):
             st.session_state.admin_logged_in = False
             st.rerun()
-
 
 # ─── HERO ────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -201,352 +189,107 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-
 # ─── FORM ─────────────────────────────────────────────────────────────────────
 if not st.session_state.submitted:
-
-    # ── 1. DANE KONTAKTOWE ────────────────────────────────────────────────────
-    st.markdown("""<div class="section-card">
-        <div class="section-title"><span class="section-num">1</span> Dane kontaktowe</div>
-    </div>""", unsafe_allow_html=True)
-
+    # ── 1. DANE KONTAKTOWE
+    st.markdown("""<div class="section-card"><div class="section-title"><span class="section-num">1</span> Dane kontaktowe</div></div>""", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
         imie = st.text_input("Imię i nazwisko", placeholder="np. Anna Kowalska")
         telefon = st.text_input("Telefon", placeholder="+48 000 000 000")
     with col2:
         email = st.text_input("E-mail", placeholder="anna@example.com")
-        # Find next available date (skip blocked)
         blocked_dates = load_blocked_dates()
         default_date = datetime.today().date() + timedelta(days=3)
-        while str(default_date) in blocked_dates:
-            default_date += timedelta(days=1)
+        while str(default_date) in blocked_dates: default_date += timedelta(days=1)
+        odbiór = st.date_input("Data odbioru", min_value=datetime.today().date() + timedelta(days=3), value=default_date)
 
-        odbiór = st.date_input(
-            "Data odbioru",
-            min_value=datetime.today().date() + timedelta(days=3),
-            value=default_date,
-        )
+    date_ok = str(odbiór) not in blocked_dates
+    if not date_ok: st.error("❌ Ta data jest niedostępna.")
 
-        # Block validation
-        if str(odbiór) in blocked_dates:
-            st.error("❌ Ta data jest niedostępna — cukiernia jest w tym dniu zamknięta lub zajęta. Wybierz inną datę.")
-            date_ok = False
-        else:
-            date_ok = True
+    st.markdown('<div class="info-box">INFO: Zamówienia przyjmujemy z min. 3-dniowym wyprzedzeniem.</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="info-box">⏱ Zamówienia przyjmujemy z minimum 3-dniowym wyprzedzeniem. Torty weselne — prosimy o kontakt co najmniej 2 tygodnie wcześniej.</div>', unsafe_allow_html=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── 2. RODZAJ & ROZMIAR ───────────────────────────────────────────────────
-    st.markdown("""<div class="section-card">
-        <div class="section-title"><span class="section-num">2</span> Rodzaj & rozmiar tortu</div>
-    </div>""", unsafe_allow_html=True)
-
+    # ── 2. RODZAJ & ROZMIAR
+    st.markdown("""<div class="section-card"><div class="section-title"><span class="section-num">2</span> Rodzaj i rozmiar</div></div>""", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        tier = st.selectbox(
-            "Seria tortu",
-            ["Klasyczny", "Premium", "Artystyczny", "Weselny"],
-        )
-        tier_desc = {
-            "Klasyczny": "🎂 Elegancki, prosty tort — idealny na urodziny lub mały jubileusz. Od 120 zł.",
-            "Premium": "✨ Wyrafinowane wykończenie, piękne detale, wyraziste smaki. Od 200 zł.",
-            "Artystyczny": "🎨 Tort jak dzieło sztuki — ręcznie malowany lub zdobiony figurkami. Od 320 zł.",
-            "Weselny": "💍 Wielopiętrowe arcydzieło na Twój wyjątkowy dzień. Od 500 zł.",
-        }
-        st.markdown(f'<div class="info-box">{tier_desc[tier]}</div>', unsafe_allow_html=True)
-
+        tier = st.selectbox("Seria tortu", ["Klasyczny", "Premium", "Artystyczny", "Weselny"])
     with col2:
-        porcje = st.slider("Liczba porcji", min_value=8, max_value=120, value=16, step=2)
+        porcje = st.slider("Liczba porcji", 8, 120, 16, 2)
         floors = st.radio("Liczba pięter", [1, 2, 3], horizontal=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    # ── 3. SMAK
+    st.markdown("""<div class="section-card"><div class="section-title"><span class="section-num">3</span> Biszkopt i nadzienie</div></div>""", unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1: sponge = st.selectbox("Biszkopt", ["Waniliowy", "Czekoladowy", "Red Velvet"])
+    with col2: fillings = st.multiselect("Nadzienie (+12 zł)", ["Truskawka", "Malina", "Pistacja", "Karmel"], default=["Truskawka"])
+    
+    c1, c2 = st.columns(2)
+    is_gluten = c1.checkbox("🌾 Bez glutenu (+25 zł)")
+    is_vegan = c2.checkbox("🌱 Wegański (+30 zł)")
 
-    # ── 3. SMAK ───────────────────────────────────────────────────────────────
-    st.markdown("""<div class="section-card">
-        <div class="section-title"><span class="section-num">3</span> Biszkopt & nadzienie</div>
-    </div>""", unsafe_allow_html=True)
-
+    # ── 4. DEKORACJA
+    st.markdown("""<div class="section-card"><div class="section-title"><span class="section-num">4</span> Dekoracja</div></div>""", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
     with col1:
-        sponge = st.selectbox(
-            "Biszkopt",
-            ["Klasyczny waniliowy", "Czekoladowy", "Red Velvet", "Cytrynowy", "Matcha", "Kakaowy z espresso"],
-        )
-    with col2:
-        fillings = st.multiselect(
-            "Nadzienie (możliwy wybór wielu, +12 zł / szt.)",
-            ["Truskawkowe", "Malinowe", "Lemon curd", "Czekoladowe", "Karmelowe",
-             "Pistacjowe", "Tiramisu", "Kokosowe", "Wiśniowe", "Mango-passionfruit"],
-            default=["Truskawkowe"],
-        )
-
-    col1, col2 = st.columns(2)
-    with col1:
-        is_gluten = st.checkbox("🌾 Bez glutenu (+25 zł)")
-    with col2:
-        is_vegan = st.checkbox("🌱 Wersja wegańska (+30 zł)")
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── 4. DEKORACJA ──────────────────────────────────────────────────────────
-    st.markdown("""<div class="section-card">
-        <div class="section-title"><span class="section-num">4</span> Dekoracja & wykończenie</div>
-    </div>""", unsafe_allow_html=True)
-
-    col1, col2 = st.columns(2)
-    with col1:
-        decoration_raw = st.selectbox(
-            "Styl dekoracji",
-            ["Prosty", "Kwiatowy (+40 zł)", "Malowany (+80 zł)", "Figurki (+120 zł)", "Naked Cake (+30 zł)"],
-        )
+        decoration_raw = st.selectbox("Styl", ["Prosty", "Kwiatowy (+40 zł)", "Malowany (+80 zł)", "Figurki (+120 zł)"])
         decoration = decoration_raw.split(" (")[0]
     with col2:
-        kolor = st.selectbox(
-            "Paleta kolorów",
-            ["Pastelowa (różowy, miętowy, kremowy)", "Klasyczna (biel i złoto)",
-             "Ciemna (granat, bordo, czerń)", "Kolorowa (tęczowa)", "Niestandardowa (opis poniżej)"],
-        )
+        kolor = st.selectbox("Kolory", ["Pastelowa", "Biel i Złoto", "Ciemna", "Kolorowa"])
 
-    extras = st.multiselect(
-        "Dodatki (+15 zł / szt.)",
-        ["Złote detale", "Jadalne kwiaty", "Perły cukrowe", "Błyszczące opłatki",
-         "Napis dedykacyjny", "Świeczki urodzinowe", "Topper weselny", "Figurki cukrowe", "Owoce świeże"],
-    )
+    extras = st.multiselect("Dodatki (+15 zł)", ["Złoto", "Kwiaty", "Perły", "Napis", "Świeczki"])
+    napis = st.text_input("Napis") if "Napis" in extras else ""
+    inspiracje = st.text_area("Inspiracje", height=90)
 
-    napis = ""
-    if "Napis dedykacyjny" in extras:
-        napis = st.text_input("Treść napisu na torcie", placeholder='np. „Wszystkiego najlepszego, Mario!"')
-
-    inspiracje = st.text_area(
-        "Dodatkowe wskazówki / inspiracje",
-        placeholder="Opisz swoje wyobrażenie tortu, temat przewodni, ulubione kolory, lub wklej link do inspiracji...",
-        height=90,
-    )
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── CENA ──────────────────────────────────────────────────────────────────
+    # ── CENA
     price = calc_price(tier, porcje, floors, fillings, decoration, extras, is_gluten, is_vegan)
-    fl_label = "piętro" if floors == 1 else ("piętra" if floors < 5 else "pięter")
-
-    sst.markdown(f"""
-<div class="price-box">
-    <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8;">Szacowany koszt</div>
-    <div class="price-value">{val_price} zł</div>
-    <div style="font-size: 0.8rem; margin-top: 10px; opacity: 0.7;">
-        {porcje} porcji | {floors} piętra | cena orientacyjna
-    </div>
-</div>
-<div style="background: rgba(99, 13, 22, 0.05); border-left: 3px solid #630D16; padding: 10px; font-size: 0.85rem; color: #630D16;">
-    INFO: Ostateczna wycena po potwierdzeniu przez cukiernika. Zaliczka 40% przy złożeniu zamówienia.
-</div>
-""", unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── SUBMIT ────────────────────────────────────────────────────────────────
-    if st.button("✦ Złóż zamówienie"):
-        errors = []
-        if not imie.strip():
-            errors.append("Podaj imię i nazwisko.")
-        if not telefon.strip():
-            errors.append("Podaj numer telefonu.")
-        if not email.strip() or "@" not in email:
-            errors.append("Podaj poprawny adres e-mail.")
-        if not fillings:
-            errors.append("Wybierz co najmniej jedno nadzienie.")
-
-        if not date_ok:
-            errors.append("Wybierz dostępną datę odbioru.")
-        if errors:
-            for e in errors:
-                st.error(f"⚠️ {e}")
-        else:
-            order = {
-                "id": st.session_state.order_id,
-                "imie": imie,
-                "telefon": telefon,
-                "email": email,
-                "odbiór": str(odbiór),
-                "tier": tier,
-                "porcje": porcje,
-                "floors": floors,
-                "sponge": sponge,
-                "fillings": fillings,
-                "decoration": decoration,
-                "kolor": kolor.split(" (")[0],
-                "extras": extras,
-                "napis": napis,
-                "gluten_free": is_gluten,
-                "vegan": is_vegan,
-                "inspiracje": inspiracje,
-                "price": price,
-            }
-            st.session_state.order_data = order
-
-            # ── INTEGRACJE ────────────────────────────────────────
-            with st.spinner("Zapisujemy zamówienie..."):
-                sheets_ok = save_to_sheets(order)
-                email_ok  = send_confirmation_emails(order)
-
-            st.session_state.submitted = True
-            st.session_state.sheets_ok = sheets_ok
-            st.session_state.email_ok  = email_ok
-            st.rerun()
-
-# ─── SUCCESS ──────────────────────────────────────────────────────────────────
-else:
-    d = st.session_state.order_data
-
-    st.markdown(f"""
-<div style="text-align: center; padding: 3rem 1rem;">
-    <div style="font-size:3rem; margin-bottom:0.6rem;">&#127824;</div>
-    <h2 style="font-family: 'Playfair Display', serif; color: #630D16;">Dziękujemy, {imie}!</h2>
-    <p style="color: #8C7E7E; letter-spacing: 1px;">TWOJE ZAMÓWIENIE ZOSTAŁO PRZYJĘTE</p>
-    <div style="background: white; border: 1px solid #E6DED5; padding: 1.5rem; margin-top: 2rem; display: inline-block; min-width: 300px;">
-        <p style="margin: 0; font-size: 0.8rem; color: #8C7E7E;">NUMER ZAMÓWIENIA</p>
-        <p style="font-family: 'Playfair Display', serif; font-size: 1.5rem; color: #630D16; margin: 0.5rem 0;">{order_id}</p>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    st.markdown("""<div class="section-card">
-        <div class="section-title"><span class="section-num">&#10003;</span> Podsumowanie zamówienia</div>
-    """, unsafe_allow_html=True)
-
-    rows = [
-        ("Klient", d["imie"]),
-        ("Telefon", d["telefon"]),
-        ("E-mail", d["email"]),
-        ("Data odbioru", d["odbiór"]),
-        ("Seria tortu", d["tier"]),
-        ("Porcje", f'{d["porcje"]} szt.'),
-        ("Piętra", str(d["floors"])),
-        ("Biszkopt", d["sponge"]),
-        ("Nadzienie", ", ".join(d["fillings"])),
-        ("Dekoracja", d["decoration"]),
-        ("Paleta kolorów", d["kolor"]),
-        ("Dodatki", ", ".join(d["extras"]) if d["extras"] else "—"),
-        ("Napis", d["napis"] if d["napis"] else "—"),
-        ("Bez glutenu", "Tak" if d["gluten_free"] else "Nie"),
-        ("Wegańskie", "Tak" if d["vegan"] else "Nie"),
-    ]
-
-    rows_html = "".join(
-        f'<div class="summary-row"><span class="summary-key">{k}</span><span class="summary-val">{v}</span></div>'
-        for k, v in rows
-    )
-    st.markdown(rows_html + "</div>", unsafe_allow_html=True)
-
+    
     st.markdown(f"""
     <div class="price-box">
-        <div class="price-label">Szacunkowa cena</div>
-        <div class="price-value">{fmt_price(d["price"])}</div>
-        <div class="price-sub">Ostateczna kwota zostanie potwierdzona telefonicznie</div>
+        <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8;">Szacowany koszt</div>
+        <div class="price-value">{price:.2f} zł</div>
+        <div style="font-size: 0.8rem; margin-top: 10px; opacity: 0.7;">
+            {porcje} porcji | {floors} piętra | wycena orientacyjna
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    if d.get("inspiracje"):
-        st.markdown(f'<div class="info-box">💬 <strong>Uwagi klienta:</strong> {d["inspiracje"]}</div>', unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # ── ANKIETA ───────────────────────────────────────────────────────────────
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("""<div class="section-card">
-        <div class="section-title"><span class="section-num">💬</span> Chwila na feedback</div>
-    </div>""", unsafe_allow_html=True)
-
-    st.markdown('<p style="color:#7A5C45;font-size:0.9rem;margin-bottom:1rem">Bardzo zależy nam na Twojej opinii! Zajmie to dosłownie 30 sekund 🙏</p>', unsafe_allow_html=True)
-
-    if "survey_sent" not in st.session_state:
-        st.session_state.survey_sent = False
-
-    if not st.session_state.survey_sent:
-        col1, col2 = st.columns(2)
-        with col1:
-            czytelnosc = st.select_slider(
-                "📋 Jak oceniasz czytelność konfiguratora?",
-                options=["😕 Słabo", "😐 Ujdzie", "🙂 Dobrze", "😊 Bardzo dobrze", "🤩 Świetnie!"],
-                value="😊 Bardzo dobrze",
-            )
-            latwos = st.select_slider(
-                "🖱️ Jak łatwo było złożyć zamówienie?",
-                options=["😕 Trudno", "😐 Średnio", "🙂 W porządku", "😊 Łatwo", "🤩 Super łatwo!"],
-                value="😊 Łatwo",
-            )
-        with col2:
-            przydatnosc = st.select_slider(
-                "⭐ Czy konfiguratorjest przydatny?",
-                options=["😕 Niezbyt", "😐 Może być", "🙂 Tak", "😊 Zdecydowanie tak", "🤩 Niezbędny!"],
-                value="😊 Zdecydowanie tak",
-            )
-            polecenie = st.select_slider(
-                "🗣️ Czy polecisz nas znajomym?",
-                options=["😕 Raczej nie", "😐 Nie wiem", "🙂 Pewnie tak", "😊 Tak!", "🤩 Już polecam!"],
-                value="😊 Tak!",
-            )
-
-        co_zmienic = st.text_area(
-            "💡 Co moglibyśmy poprawić lub dodać?",
-            placeholder="Twoja sugestia jest dla nas cenna...",
-            height=80,
-        )
-
-        if st.button("✦ Wyślij opinię"):
-            # Save survey to sheets
-            survey_data = {
-                "order_id": d["id"],
-                "czytelnosc": czytelnosc,
-                "latwos": latwos,
-                "przydatnosc": przydatnosc,
-                "polecenie": polecenie,
-                "sugestie": co_zmienic,
-                "data": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    # ── SUBMIT
+    if st.button("✦ Złóż zamówienie"):
+        if imie and email and telefon and date_ok:
+            order = {
+                "id": st.session_state.order_id, "imie": imie, "telefon": telefon, "email": email,
+                "odbiór": str(odbiór), "tier": tier, "porcje": porcje, "floors": floors,
+                "sponge": sponge, "fillings": fillings, "decoration": decoration, "kolor": kolor,
+                "extras": extras, "napis": napis, "gluten_free": is_gluten, "vegan": is_vegan,
+                "inspiracje": inspiracje, "price": price
             }
-            try:
-                from integrations import get_sheets_client
-                import streamlit as st
-                gc = get_sheets_client()
-                sheet_id = st.secrets["google_sheets"]["spreadsheet_id"]
-                sh = gc.open_by_key(sheet_id)
-                # Drugi arkusz na ankiety
-                try:
-                    ws = sh.worksheet("Ankiety")
-                except:
-                    ws = sh.add_worksheet(title="Ankiety", rows=1000, cols=10)
-                    ws.insert_row(["ID zamówienia", "Czytelność", "Łatwość", "Przydatność", "Polecenie", "Sugestie", "Data"], 1)
-                ws.append_row([
-                    survey_data["order_id"],
-                    survey_data["czytelnosc"],
-                    survey_data["latwos"],
-                    survey_data["przydatnosc"],
-                    survey_data["polecenie"],
-                    survey_data["sugestie"],
-                    survey_data["data"],
-                ])
-            except Exception as e:
-                pass  # Nie blokujemy jeśli błąd
-            st.session_state.survey_sent = True
+            st.session_state.order_data = order
+            with st.spinner("Przetwarzanie..."):
+                save_to_sheets(order)
+                send_confirmation_emails(order)
+            st.session_state.submitted = True
             st.rerun()
-    else:
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#2C5A2E,#3A7A3C);border-radius:16px;
-            padding:1.5rem 2rem;text-align:center;color:white;margin-bottom:1rem">
-            <div style="font-size:2rem;margin-bottom:0.5rem">🙏</div>
-            <div style="font-family:'Cormorant Garamond',serif;font-size:1.4rem;font-weight:300">
-                Dziękujemy za opinię!</div>
-            <div style="font-size:0.85rem;opacity:0.75;margin-top:0.4rem">
-                Twój feedback pomaga nam się rozwijać</div>
-        </div>
-        """, unsafe_allow_html=True)
+        else:
+            st.error("⚠️ Wypełnij wszystkie dane i sprawdź datę.")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("↩ Złóż nowe zamówienie"):
-        for key in ["submitted", "order_id", "order_data", "survey_sent"]:
-            st.session_state.pop(key, None)
+# ─── SUCCESS SCREEN ───────────────────────────────────────────────────────────
+else:
+    d = st.session_state.order_data
+    st.balloons()
+    st.markdown(f"""
+    <div style="text-align: center; padding: 3rem 1rem;">
+        <div style="font-size:3rem; margin-bottom:0.6rem;">&#127824;</div>
+        <h2 style="font-family: 'Playfair Display', serif; color: #630D16;">Dziękujemy, {d['imie']}!</h2>
+        <p style="color: #8C7E7E;">TWOJE ZAMÓWIENIE {d['id']} ZOSTAŁO PRZYJĘTE</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""<div class="section-card"><div class="section-title"><span class="section-num">&#10003;</span> Podsumowanie</div>""", unsafe_allow_html=True)
+    for k, v in [("Klient", d["imie"]), ("Data", d["odbiór"]), ("Cena", fmt_price(d["price"]))]:
+        st.markdown(f'<div class="summary-row"><span class="summary-key">{k}</span><span>{v}</span></div>', unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if st.button("↩ Nowe zamówienie"):
+        st.session_state.submitted = False
         st.rerun()
