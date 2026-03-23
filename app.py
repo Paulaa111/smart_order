@@ -12,6 +12,16 @@ redis = Redis(
     token=st.secrets["UPSTASH_REDIS_REST_TOKEN"]
 )
 
+def save_order_to_redis(order_data):
+    try:
+        order_id = order_data['id']
+        # Zapisujemy dane zamówienia na 30 dni
+        redis.set(f"order:{order_id}", json.dumps(order_data), ex=2592000)
+        # Dodajemy ID do listy wszystkich zamówień, żebyś mogła je potem wyświetlić
+        redis.lpush("all_orders", order_id)
+    except Exception as e:
+        st.error(f"Błąd zapisu w Redis: {e}")
+
 
 # ─── BLOCKED DATES STORAGE ───────────────────────────────────────────────────
 BLOCKED_DATES_FILE = Path(__file__).parent / "blocked_dates.json"
