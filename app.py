@@ -401,18 +401,16 @@ else:
     d = st.session_state.order_data
 
     st.markdown(f"""
-    <div class="success-box">
-        <div style="font-size:3rem;margin-bottom:0.6rem">🎂</div>
-        <h2>Zamówienie złożone!</h2>
-        <p style="opacity:0.75;font-size:0.95rem;margin-top:0.5rem">
-            Skontaktujemy się z Tobą w ciągu 24 godzin, aby potwierdzić szczegóły.
-        </p>
-        <div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:0.7rem 1.5rem;display:inline-block;margin-top:1.2rem;">
-            <div style="font-size:0.65rem;letter-spacing:0.25em;opacity:0.6;text-transform:uppercase;">Numer zamówienia</div>
-            <div style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:#A8F0AA;">{d["id"]}</div>
-        </div>
+<div style="text-align: center; padding: 3rem 1rem;">
+    <div style="font-size:3rem; margin-bottom:0.6rem;">&#127824;</div>
+    <h2 style="font-family: 'Playfair Display', serif; color: #630D16;">Dziękujemy, {imie}!</h2>
+    <p style="color: #8C7E7E; letter-spacing: 1px;">TWOJE ZAMÓWIENIE ZOSTAŁO PRZYJĘTE</p>
+    <div style="background: white; border: 1px solid #E6DED5; padding: 1.5rem; margin-top: 2rem; display: inline-block; min-width: 300px;">
+        <p style="margin: 0; font-size: 0.8rem; color: #8C7E7E;">NUMER ZAMÓWIENIA</p>
+        <p style="font-family: 'Playfair Display', serif; font-size: 1.5rem; color: #630D16; margin: 0.5rem 0;">{order_id}</p>
     </div>
-    """, unsafe_allow_html=True)
+</div>
+""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
 
