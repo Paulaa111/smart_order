@@ -50,7 +50,7 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 
 [data-testid="stHeader"] { background: transparent !important; }
-[data-testid="stSidebar"] { display: none; }
+/* sidebar visible for admin */
 #MainMenu, footer, header { visibility: hidden; }
 
 .block-container {
