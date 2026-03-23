@@ -1,144 +1,30 @@
 import streamlit as st
+from datetime import datetime, timedelta, date
 import random
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import json
-from datetime import datetime, timedelta
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from pathlib import Path
+from integrations import save_to_sheets, send_confirmation_emails
 
 
-# --- WYSYŁKA MAILA ---
-def send_email(order_data):
-    if "EMAIL_PASSWORD" not in st.secrets:
-        st.error("Brak klucza EMAIL_PASSWORD w Secrets!")
-        return False
 
-    sender_email = "letitcolor66@gmail.com"
-    owner_email = "letitcolor66@gmail.com"  # ← zmień na maila właściciela cukierni
-    password = st.secrets["EMAIL_PASSWORD"]
-    receiver_email = order_data["email"]
+# ─── BLOCKED DATES STORAGE ───────────────────────────────────────────────────
+BLOCKED_DATES_FILE = Path(__file__).parent / "blocked_dates.json"
 
-    def build_message(to_addr, subject, body_text, body_html):
-        msg = MIMEMultipart("alternative")
-        msg["From"] = sender_email
-        msg["To"] = to_addr
-        msg["Subject"] = subject
-        msg.attach(MIMEText(body_text, "plain", "utf-8"))
-        msg.attach(MIMEText(body_html, "html", "utf-8"))
-        return msg
+def load_blocked_dates() -> list:
+    if BLOCKED_DATES_FILE.exists():
+        with open(BLOCKED_DATES_FILE) as f:
+            return json.load(f)
+    return []
 
-    # ── MAIL DO KLIENTA ───────────────────────────────────────────────────────
-    client_text = f"""
-Cześć {order_data['imie']}!
+def save_blocked_dates(dates: list):
+    with open(BLOCKED_DATES_FILE, "w") as f:
+        json.dump(dates, f)
 
-Dziękujemy za złożenie zamówienia w naszej cukierni 🎂
+def is_date_blocked(d) -> bool:
+    blocked = load_blocked_dates()
+    return str(d) in blocked
 
-Numer zamówienia: {order_data['id']}
-Data odbioru: {order_data['odbiór']}
-Szacunkowa cena: {order_data['price']:.2f} zł
-
-Cukiernik skontaktuje się z Tobą w ciągu 24h.
-
-Pozdrawiamy, Zespół Sweet Order
-    """
-
-    client_html = f"""
-<html><body style="font-family:Arial,sans-serif;color:#0A1E6E;background:#F5F0E8;padding:20px;">
-  <div style="max-width:500px;margin:0 auto;background:white;border-radius:4px;padding:32px;box-shadow:0 4px 20px rgba(20,56,160,0.08);">
-    <h2 style="color:#1438A0;">Sweet Order 🎂</h2>
-    <p style="color:#4560A0;font-size:0.85rem;">Cukiernia Artystyczna</p>
-    <p>Cześć <strong>{order_data['imie']}</strong>!</p>
-    <p>Dziękujemy za złożenie zamówienia. Oto szczegóły:</p>
-    <div style="background:#F5F0E8;border-radius:4px;padding:16px;margin:20px 0;">
-      <p><strong>Nr zamówienia:</strong> {order_data['id']}</p>
-      <p><strong>Data odbioru:</strong> {order_data['odbiór']}</p>
-      <p><strong>Seria tortu:</strong> {order_data['tier']}</p>
-      <p><strong>Porcje:</strong> {order_data['porcje']} szt. · {order_data['floors']} piętro/a</p>
-      <p><strong>Biszkopt:</strong> {order_data['sponge']}</p>
-      <p><strong>Nadzienie:</strong> {", ".join(order_data['fillings'])}</p>
-      <p><strong>Dekoracja:</strong> {order_data['decoration']}</p>
-      <p><strong>Dodatki:</strong> {", ".join(order_data['extras']) if order_data['extras'] else '—'}</p>
-      <p><strong>Bez glutenu:</strong> {'Tak' if order_data['gluten_free'] else 'Nie'} · <strong>Wegańskie:</strong> {'Tak' if order_data['vegan'] else 'Nie'}</p>
-      {'<p><strong>Uwagi:</strong> ' + order_data['inspiracje'] + '</p>' if order_data.get('inspiracje') else ''}
-      <p><strong>Szacunkowa cena:</strong> <span style="color:#1438A0;font-weight:bold;">{order_data['price']:.2f} zł</span></p>
-    </div>
-    <p style="background:#EDE5D8;border-left:2px solid #1438A0;padding:10px 14px;border-radius:0 4px 4px 0;font-size:0.88rem;">
-      💳 Skontaktujemy się z Tobą w ciągu <strong>24h</strong> w celu potwierdzenia i ustalenia zaliczki (40%).
-    </p>
-    <p style="margin-top:24px;color:#4560A0;font-size:0.85rem;">Pozdrawiamy,<br><strong>Zespół Sweet Order</strong></p>
-  </div>
-</body></html>
-    """
-
-    # ── MAIL DO WŁAŚCICIELA ───────────────────────────────────────────────────
-    napis_info = f"<p><strong>Napis na torcie:</strong> {order_data['napis']}</p>" if order_data.get('napis') else ""
-    inspiracje_info = f"<p><strong>Uwagi / inspiracje:</strong> {order_data['inspiracje']}</p>" if order_data.get('inspiracje') else ""
-
-    owner_html = f"""
-<html><body style="font-family:Arial,sans-serif;color:#0A1E6E;padding:20px;">
-  <div style="max-width:560px;margin:0 auto;background:white;border-radius:4px;padding:32px;box-shadow:0 4px 20px rgba(20,56,160,0.08);">
-    <div style="background:#0E2D8A;border-radius:4px;padding:16px 24px;margin-bottom:24px;">
-      <h2 style="color:#DEC08A;margin:0;font-size:1.4rem;">🎂 Nowe zamówienie!</h2>
-      <p style="color:rgba(245,240,232,0.6);margin:4px 0 0;font-size:0.85rem;">Sweet Order · Panel właściciela</p>
-    </div>
-    <h3 style="color:#1438A0;border-bottom:1px solid #EDE5D8;padding-bottom:8px;">📋 Dane klienta</h3>
-    <p><strong>Imię i nazwisko:</strong> {order_data['imie']}</p>
-    <p><strong>Telefon:</strong> {order_data['telefon']}</p>
-    <p><strong>E-mail:</strong> {order_data['email']}</p>
-    <p><strong>Data odbioru:</strong> {order_data['odbiór']}</p>
-    <h3 style="color:#1438A0;border-bottom:1px solid #EDE5D8;padding-bottom:8px;margin-top:24px;">🎂 Szczegóły tortu</h3>
-    <p><strong>Nr zamówienia:</strong> <span style="background:#F5F0E8;padding:2px 8px;border-radius:3px;font-weight:bold;">{order_data['id']}</span></p>
-    <p><strong>Seria:</strong> {order_data['tier']}</p>
-    <p><strong>Porcje:</strong> {order_data['porcje']} szt.</p>
-    <p><strong>Piętra:</strong> {order_data['floors']}</p>
-    <p><strong>Biszkopt:</strong> {order_data['sponge']}</p>
-    <p><strong>Nadzienie:</strong> {", ".join(order_data['fillings'])}</p>
-    <p><strong>Dekoracja:</strong> {order_data['decoration']}</p>
-    <p><strong>Paleta kolorów:</strong> {order_data['kolor']}</p>
-    <p><strong>Dodatki:</strong> {", ".join(order_data['extras']) if order_data['extras'] else '—'}</p>
-    {napis_info}
-    <p><strong>Bez glutenu:</strong> {'✅ Tak' if order_data['gluten_free'] else 'Nie'}</p>
-    <p><strong>Wegańskie:</strong> {'✅ Tak' if order_data['vegan'] else 'Nie'}</p>
-    {inspiracje_info}
-    <div style="background:#0E2D8A;border-radius:4px;padding:16px 24px;margin-top:24px;text-align:center;">
-      <p style="color:rgba(245,240,232,0.5);font-size:0.7rem;text-transform:uppercase;letter-spacing:0.2em;margin:0 0 4px;">Szacunkowa cena</p>
-      <p style="color:#DEC08A;font-size:2rem;margin:0;font-weight:300;">{order_data['price']:.2f} zł</p>
-    </div>
-  </div>
-</body></html>
-    """
-
-    owner_text = f"Nowe zamówienie {order_data['id']} od {order_data['imie']}, tel: {order_data['telefon']}, odbiór: {order_data['odbiór']}, cena: {order_data['price']:.2f} zł"
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-            server.login(sender_email, password)
-            msg_client = build_message(receiver_email, f"✦ Potwierdzenie zamówienia {order_data['id']} – Sweet Order", client_text, client_html)
-            server.sendmail(sender_email, receiver_email, msg_client.as_string())
-            msg_owner = build_message(owner_email, f"🎂 Nowe zamówienie {order_data['id']} – {order_data['imie']}", owner_text, owner_html)
-            server.sendmail(sender_email, owner_email, msg_owner.as_string())
-        return True
-    except smtplib.SMTPAuthenticationError:
-        st.error("❌ Błąd logowania do Gmail. Sprawdź hasło aplikacji w Secrets.")
-        return False
-    except Exception as e:
-        st.error(f"❌ Błąd wysyłki: {e}")
-        return False
-
-
-# --- POŁĄCZENIE Z ARKUSZEM ---
-def get_gspread_client():
-    creds_dict = st.secrets["gcp_service_account"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(
-        creds_dict,
-        ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-    )
-    return gspread.authorize(creds)
-
-
-# ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
+# ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Sweet Order · Cukiernia",
     page_icon="🎂",
@@ -149,28 +35,18 @@ st.set_page_config(
 # ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,500&family=Jost:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-:root {
-  --navy: #1438A0;
-  --navy-deep: #0E2D8A;
-  --navy-mid: #1A46B8;
-  --cream: #F5F0E8;
-  --cream-warm: #EDE5D8;
-  --cream-dark: #D6CABC;
-  --accent: #C9A96E;
-  --accent-light: #DEC08A;
-  --text: #0A1E6E;
-  --text-muted: #4560A0;
-  --border: rgba(20,56,160,0.12);
+html, body, [data-testid="stAppViewContainer"] {
+    background: #FDF8F3 !important;
+    font-family: 'DM Sans', sans-serif;
+    color: #2C1A0E;
 }
 
-html, body, [data-testid="stAppViewContainer"] {
-    background: var(--cream) !important;
-    font-family: 'Jost', sans-serif;
-    color: var(--text);
+[data-testid="stAppViewContainer"] {
+    background: linear-gradient(160deg, #FDF8F3 0%, #FAF0E6 50%, #FDF8F3 100%) !important;
 }
 
 [data-testid="stHeader"] { background: transparent !important; }
@@ -178,70 +54,15 @@ html, body, [data-testid="stAppViewContainer"] {
 #MainMenu, footer, header { visibility: hidden; }
 
 .block-container {
-    max-width: 1000px !important;
+    max-width: 1100px !important;
     padding: 0 2rem 4rem !important;
     margin: 0 auto !important;
-}
-
-/* LOGO */
-.logo-bar {
-  display: flex;
-  justify-content: center;
-  padding: 2.5rem 2rem 0;
-}
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-.logo-mark {
-  width: 52px; height: 52px;
-  background: var(--navy-deep);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
-}
-.logo-mark::before {
-  content: '';
-  position: absolute;
-  bottom: -6px; left: 50%;
-  transform: translateX(-50%);
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  background: rgba(201,169,110,0.15);
-}
-.logo-mark svg { position: relative; z-index: 1; }
-.logo-text {
-  padding-left: 0.9rem;
-  border-left: 1.5px solid rgba(20,56,160,0.15);
-  margin-left: 0.9rem;
-}
-.logo-name {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 1.45rem;
-  font-weight: 600;
-  color: var(--navy-deep);
-  line-height: 1;
-  letter-spacing: 0.02em;
-}
-.logo-tagline {
-  font-family: 'Jost', sans-serif;
-  font-size: 0.58rem;
-  font-weight: 500;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: var(--accent);
-  margin-top: 0.25rem;
 }
 
 /* HERO */
 .hero {
     text-align: center;
-    padding: 3rem 2rem 3rem;
+    padding: 4rem 2rem 3rem;
     position: relative;
 }
 .hero::before {
@@ -249,92 +70,85 @@ html, body, [data-testid="stAppViewContainer"] {
     position: absolute;
     top: 0; left: 50%;
     transform: translateX(-50%);
-    width: 1px; height: 40px;
-    background: linear-gradient(to bottom, transparent, var(--navy));
+    width: 1px; height: 60px;
+    background: linear-gradient(to bottom, transparent, #C8956C);
 }
 .hero-tag {
     display: inline-block;
-    font-family: 'Jost', sans-serif;
-    font-size: 0.62rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
     font-weight: 500;
-    letter-spacing: 0.35em;
+    letter-spacing: 0.25em;
     text-transform: uppercase;
-    color: var(--navy);
-    background: rgba(20,56,160,0.06);
-    padding: 0.5rem 1.6rem;
-    border-radius: 1px;
-    margin-bottom: 2rem;
-    border: 1px solid rgba(20,56,160,0.18);
+    color: #C8956C;
+    background: rgba(200, 149, 108, 0.1);
+    padding: 0.4rem 1.2rem;
+    border-radius: 20px;
+    margin-bottom: 1.2rem;
+    border: 1px solid rgba(200, 149, 108, 0.25);
 }
 .hero h1 {
     font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(3.5rem, 8vw, 6.5rem);
+    font-size: clamp(2.8rem, 6vw, 5rem);
     font-weight: 300;
-    color: var(--navy-deep);
-    line-height: 1.0;
+    color: #2C1A0E;
+    line-height: 1.1;
+    margin-bottom: 0.5rem;
     letter-spacing: -0.02em;
 }
 .hero h1 em {
     font-style: italic;
-    font-weight: 500;
-    color: var(--accent);
+    color: #C8956C;
 }
 .hero-sub {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
-    font-weight: 400;
-    margin-top: 1.4rem;
+    font-size: 1rem;
+    color: #7A5C45;
+    font-weight: 300;
+    letter-spacing: 0.05em;
+    margin-top: 0.8rem;
 }
 .ornament-divider {
     text-align: center;
-    color: var(--accent);
+    color: #C8956C;
     opacity: 0.5;
-    font-size: 0.8rem;
-    letter-spacing: 0.8em;
-    margin: 0.5rem 0 3rem;
+    font-size: 1.2rem;
+    letter-spacing: 0.5em;
+    margin: 0.5rem 0 2.5rem;
 }
 
 /* SECTION CARDS */
 .section-card {
-    background: #FFFFFF;
-    border: 1px solid var(--border);
-    border-radius: 3px;
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(200,149,108,0.15);
+    border-radius: 20px;
     padding: 1.8rem 2.5rem;
-    margin-bottom: 1.2rem;
-    box-shadow: 0 2px 16px rgba(20,56,160,0.04);
-    transition: box-shadow 0.3s ease, border-color 0.3s ease;
-}
-.section-card:hover {
-    box-shadow: 0 8px 40px rgba(20,56,160,0.1);
-    border-color: rgba(20,56,160,0.2);
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 32px rgba(44, 26, 14, 0.06);
 }
 .section-title {
-    font-family: 'Jost', sans-serif;
-    font-size: 0.63rem;
-    font-weight: 600;
-    color: var(--text-muted);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.5rem;
+    font-weight: 400;
+    color: #2C1A0E;
     display: flex;
     align-items: center;
-    gap: 0.9rem;
+    gap: 0.6rem;
     margin-bottom: 0;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border);
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid rgba(200,149,108,0.2);
 }
 .section-num {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px; height: 24px;
-    background: var(--navy);
-    color: var(--cream);
-    border-radius: 2px;
-    font-family: 'Jost', sans-serif;
-    font-size: 0.68rem;
-    font-weight: 600;
+    width: 28px; height: 28px;
+    background: #C8956C;
+    color: white;
+    border-radius: 50%;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
     flex-shrink: 0;
 }
 
@@ -342,165 +156,110 @@ html, body, [data-testid="stAppViewContainer"] {
 .stTextInput > div > div > input,
 .stTextArea > div > div > textarea,
 .stNumberInput > div > div > input {
-    background: var(--cream) !important;
-    border: 1.5px solid var(--cream-dark) !important;
-    border-radius: 3px !important;
-    color: var(--navy-deep) !important;
-    font-family: 'Jost', sans-serif !important;
-    font-size: 0.92rem !important;
+    background: rgba(253, 248, 243, 0.9) !important;
+    border: 1.5px solid rgba(200, 149, 108, 0.3) !important;
+    border-radius: 12px !important;
+    color: #2C1A0E !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 0.95rem !important;
 }
 .stTextInput > div > div > input:focus,
 .stTextArea > div > div > textarea:focus {
-    border-color: var(--navy) !important;
-    box-shadow: 0 0 0 3px rgba(20,56,160,0.08) !important;
-    outline: none !important;
+    border-color: #C8956C !important;
+    box-shadow: 0 0 0 3px rgba(200, 149, 108, 0.15) !important;
 }
 .stSelectbox > div > div {
-    background: var(--cream) !important;
-    border: 1.5px solid var(--cream-dark) !important;
-    border-radius: 3px !important;
+    background: rgba(253, 248, 243, 0.9) !important;
+    border: 1.5px solid rgba(200, 149, 108, 0.3) !important;
+    border-radius: 12px !important;
 }
 .stMultiSelect > div > div {
-    background: var(--cream) !important;
-    border: 1.5px solid var(--cream-dark) !important;
-    border-radius: 3px !important;
+    background: rgba(253, 248, 243, 0.9) !important;
+    border: 1.5px solid rgba(200, 149, 108, 0.3) !important;
+    border-radius: 12px !important;
 }
 .stMultiSelect [data-baseweb="tag"] {
-    background: rgba(20,56,160,0.08) !important;
-    border: 1px solid rgba(20,56,160,0.2) !important;
-    border-radius: 2px !important;
-    color: var(--navy) !important;
-    font-weight: 600 !important;
-    font-size: 0.78rem !important;
+    background: rgba(200, 149, 108, 0.15) !important;
+    border: 1px solid rgba(200, 149, 108, 0.4) !important;
+    border-radius: 8px !important;
+    color: #2C1A0E !important;
 }
-.stSlider > div > div > div > div { background: #6B2737 !important; }
-.stSlider [data-testid="stThumbValue"] { color: #6B2737 !important; }
-.stSlider [aria-valuenow] { accent-color: #6B2737 !important; }
-.stSlider > div > div > div { background: var(--cream-dark) !important; }
+.stSlider > div > div > div > div { background: #C8956C !important; }
+.stSlider > div > div > div { background: rgba(200, 149, 108, 0.2) !important; }
 
 /* LABELS */
 label, [data-testid="stWidgetLabel"] p {
-    font-family: 'Jost', sans-serif !important;
-    font-size: 0.63rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.18em !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 0.8rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.06em !important;
     text-transform: uppercase !important;
-    color: var(--text-muted) !important;
+    color: #7A5C45 !important;
 }
 
 /* PRICE BOX */
 .price-box {
-    background: var(--navy-deep);
-    border-radius: 3px;
-    padding: 2.5rem 2.5rem;
-    color: var(--cream);
+    background: linear-gradient(135deg, #2C1A0E 0%, #4A2E1C 100%);
+    border-radius: 20px;
+    padding: 2rem 2.5rem;
+    color: white;
     text-align: center;
     margin: 1.5rem 0;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 12px 40px rgba(14,45,138,0.25);
-}
-.price-box::before {
-    content: '';
-    position: absolute;
-    top: -60px; right: -60px;
-    width: 240px; height: 240px;
-    border-radius: 50%;
-    background: rgba(201,169,110,0.08);
-    pointer-events: none;
-}
-.price-box::after {
-    content: '';
-    position: absolute;
-    bottom: -80px; left: -40px;
-    width: 200px; height: 200px;
-    border-radius: 50%;
-    background: rgba(201,169,110,0.05);
-    pointer-events: none;
+    box-shadow: 0 12px 40px rgba(44, 26, 14, 0.25);
 }
 .price-label {
-    font-size: 0.6rem;
-    letter-spacing: 0.35em;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
     text-transform: uppercase;
-    font-weight: 600;
-    color: rgba(245,240,232,0.4);
-    margin-bottom: 0.5rem;
+    opacity: 0.6;
+    margin-bottom: 0.4rem;
 }
 .price-value {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 5rem;
+    font-size: 3.5rem;
     font-weight: 300;
     line-height: 1;
-    color: var(--accent-light);
-    position: relative;
-    z-index: 1;
+    color: #F4C89A;
 }
 .price-sub {
-    font-size: 0.72rem;
-    color: rgba(245,240,232,0.35);
-    margin-top: 0.6rem;
-    font-weight: 400;
-    letter-spacing: 0.1em;
-}
-
-/* NADPISANIE CZERWONYCH OBRAMÓWEK STREAMLIT */
-[data-baseweb="input"]:focus-within,
-[data-baseweb="textarea"]:focus-within,
-[data-baseweb="select"]:focus-within {
-    border-color: var(--navy) !important;
-    box-shadow: 0 0 0 3px rgba(20,56,160,0.08) !important;
-}
-div[data-baseweb="input"]:focus-within > div,
-div[data-baseweb="textarea"]:focus-within > div {
-    border-color: var(--navy) !important;
-    background-color: #fff !important;
-}
-*:focus-visible {
-    outline: 2px solid var(--navy) !important;
-    outline-offset: 1px !important;
-    box-shadow: none !important;
-}
-.stTextInput [data-baseweb="input"]:focus-within,
-.stTextArea [data-baseweb="textarea"]:focus-within {
-    border-color: var(--navy) !important;
+    font-size: 0.78rem;
+    opacity: 0.55;
+    margin-top: 0.4rem;
 }
 
 /* BUTTON */
 .stButton > button {
-    background: var(--navy) !important;
-    color: var(--cream) !important;
+    background: linear-gradient(135deg, #C8956C 0%, #A8704A 100%) !important;
+    color: white !important;
     border: none !important;
-    border-radius: 3px !important;
-    padding: 1rem 2.5rem !important;
-    font-family: 'Jost', sans-serif !important;
-    font-size: 0.72rem !important;
-    font-weight: 600 !important;
-    letter-spacing: 0.28em !important;
-    text-transform: uppercase !important;
-    transition: all 0.25s ease !important;
+    border-radius: 14px !important;
+    padding: 0.85rem 2.5rem !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-size: 1rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.05em !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 20px rgba(200, 149, 108, 0.4) !important;
     width: 100% !important;
 }
 .stButton > button:hover {
-    background: var(--navy-mid) !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 10px 36px rgba(20,56,160,0.3) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 30px rgba(200, 149, 108, 0.5) !important;
 }
 
 /* SUCCESS */
 .success-box {
-    background: var(--navy-deep);
-    border: 1px solid rgba(201,169,110,0.3);
-    border-radius: 3px;
+    background: linear-gradient(135deg, #2C5A2E 0%, #3A7A3C 100%);
+    border-radius: 20px;
     padding: 2.5rem;
     text-align: center;
-    color: var(--cream);
-    box-shadow: 0 12px 40px rgba(14,45,138,0.2);
+    color: white;
+    box-shadow: 0 12px 40px rgba(44, 90, 46, 0.3);
 }
 .success-box h2 {
     font-family: 'Cormorant Garamond', serif;
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     font-weight: 300;
-    color: var(--accent-light);
 }
 
 /* SUMMARY */
@@ -508,37 +267,30 @@ div[data-baseweb="textarea"]:focus-within > div {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.6rem 0;
-    border-bottom: 1px solid var(--border);
+    padding: 0.55rem 0;
+    border-bottom: 1px solid rgba(200,149,108,0.1);
     font-size: 0.9rem;
 }
 .summary-row:last-child { border-bottom: none; }
-.summary-key {
-    color: var(--text-muted);
-    font-size: 0.63rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    font-weight: 600;
-}
-.summary-val { color: var(--navy-deep); font-weight: 500; text-align: right; max-width: 60%; }
+.summary-key { color: #7A5C45; font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; }
+.summary-val { color: #2C1A0E; font-weight: 500; text-align: right; max-width: 60%; }
 
 /* INFO BOX */
 .info-box {
-    background: rgba(20,56,160,0.04);
-    border-left: 2px solid var(--navy);
-    border-radius: 0 3px 3px 0;
-    padding: 0.8rem 1.1rem;
-    font-size: 0.8rem;
-    color: var(--text-muted);
+    background: rgba(200, 149, 108, 0.06);
+    border-left: 3px solid #C8956C;
+    border-radius: 0 10px 10px 0;
+    padding: 0.8rem 1rem;
+    font-size: 0.85rem;
+    color: #7A5C45;
     margin: 0.5rem 0;
-    line-height: 1.55;
 }
 
 [data-testid="column"] { padding: 0 0.5rem !important; }
 
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--cream); }
-::-webkit-scrollbar-thumb { background: rgba(20,56,160,0.2); border-radius: 2px; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #FDF8F3; }
+::-webkit-scrollbar-thumb { background: rgba(200,149,108,0.4); border-radius: 3px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -566,30 +318,77 @@ if "submitted" not in st.session_state:
     st.session_state.submitted = False
 if "order_id" not in st.session_state:
     st.session_state.order_id = f"SO-{random.randint(10000, 99999)}"
+if "admin_logged_in" not in st.session_state:
+    st.session_state.admin_logged_in = False
+if "show_admin" not in st.session_state:
+    st.session_state.show_admin = False
 
 
-# ─── LOGO ─────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div class="logo-bar">
-  <div class="logo">
-    <div class="logo-mark">
-      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="13" cy="17" rx="9" ry="4" fill="#DEC08A" opacity="0.9"/>
-        <rect x="4" y="13" width="18" height="4" rx="1" fill="#DEC08A" opacity="0.7"/>
-        <ellipse cx="13" cy="13" rx="9" ry="3" fill="#F5F0E8" opacity="0.9"/>
-        <rect x="9" y="7" width="2" height="5" rx="1" fill="#F5F0E8" opacity="0.8"/>
-        <rect x="15" y="8" width="2" height="4" rx="1" fill="#F5F0E8" opacity="0.8"/>
-        <ellipse cx="10" cy="6.5" rx="1" ry="1.5" fill="#C9A96E"/>
-        <ellipse cx="16" cy="7.5" rx="1" ry="1.5" fill="#C9A96E"/>
-      </svg>
-    </div>
-    <div class="logo-text">
-      <div class="logo-name">Sweet Order</div>
-      <div class="logo-tagline">Cukiernia Artystyczna</div>
-    </div>
-  </div>
-</div>
-""", unsafe_allow_html=True)
+# ─── ADMIN PANEL ──────────────────────────────────────────────────────────────
+ADMIN_PASSWORD = st.secrets.get("admin", {}).get("password", "cukiernia2024")
+
+with st.sidebar:
+    st.markdown("### 🔐 Panel Cukiernika")
+    if not st.session_state.admin_logged_in:
+        pwd = st.text_input("Hasło", type="password", placeholder="Wpisz hasło...")
+        if st.button("Zaloguj", use_container_width=True):
+            if pwd == ADMIN_PASSWORD:
+                st.session_state.admin_logged_in = True
+                st.rerun()
+            else:
+                st.error("Błędne hasło")
+    else:
+        st.success("✅ Zalogowano")
+        st.markdown("---")
+        st.markdown("#### 📅 Zarządzaj niedostępnymi datami")
+
+        blocked = load_blocked_dates()
+
+        # Add new blocked date
+        new_blocked = st.date_input(
+            "Zablokuj datę",
+            min_value=date.today(),
+            key="admin_new_date"
+        )
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if st.button("➕ Zablokuj", use_container_width=True):
+                d_str = str(new_blocked)
+                if d_str not in blocked:
+                    blocked.append(d_str)
+                    save_blocked_dates(blocked)
+                    st.success(f"Zablokowano {d_str}")
+                    st.rerun()
+                else:
+                    st.warning("Już zablokowana")
+
+        # Show and remove blocked dates
+        st.markdown("#### 🚫 Zablokowane daty")
+        if not blocked:
+            st.info("Brak zablokowanych dat")
+        else:
+            blocked_sorted = sorted(blocked)
+            for d_str in blocked_sorted:
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    # Format date nicely
+                    try:
+                        dt = datetime.strptime(d_str, "%Y-%m-%d")
+                        label = dt.strftime("%d.%m.%Y")
+                    except:
+                        label = d_str
+                    st.markdown(f"🔴 **{label}**")
+                with c2:
+                    if st.button("🗑", key=f"del_{d_str}", help="Odblokuj"):
+                        blocked.remove(d_str)
+                        save_blocked_dates(blocked)
+                        st.rerun()
+
+        st.markdown("---")
+        if st.button("🚪 Wyloguj", use_container_width=True):
+            st.session_state.admin_logged_in = False
+            st.rerun()
+
 
 
 # ─── HERO ────────────────────────────────────────────────────────────────────
@@ -617,11 +416,24 @@ if not st.session_state.submitted:
         telefon = st.text_input("Telefon", placeholder="+48 000 000 000")
     with col2:
         email = st.text_input("E-mail", placeholder="anna@example.com")
+        # Find next available date (skip blocked)
+        blocked_dates = load_blocked_dates()
+        default_date = datetime.today().date() + timedelta(days=3)
+        while str(default_date) in blocked_dates:
+            default_date += timedelta(days=1)
+
         odbiór = st.date_input(
             "Data odbioru",
-            min_value=datetime.today() + timedelta(days=3),
-            value=datetime.today() + timedelta(days=7),
+            min_value=datetime.today().date() + timedelta(days=3),
+            value=default_date,
         )
+
+        # Block validation
+        if str(odbiór) in blocked_dates:
+            st.error("❌ Ta data jest niedostępna — cukiernia jest w tym dniu zamknięta lub zajęta. Wybierz inną datę.")
+            date_ok = False
+        else:
+            date_ok = True
 
     st.markdown('<div class="info-box">⏱ Zamówienia przyjmujemy z minimum 3-dniowym wyprzedzeniem. Torty weselne — prosimy o kontakt co najmniej 2 tygodnie wcześniej.</div>', unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
@@ -644,6 +456,7 @@ if not st.session_state.submitted:
             "Weselny": "💍 Wielopiętrowe arcydzieło na Twój wyjątkowy dzień. Od 500 zł.",
         }
         st.markdown(f'<div class="info-box">{tier_desc[tier]}</div>', unsafe_allow_html=True)
+
     with col2:
         porcje = st.slider("Liczba porcji", min_value=8, max_value=120, value=16, step=2)
         floors = st.radio("Liczba pięter", [1, 2, 3], horizontal=True)
@@ -732,46 +545,52 @@ if not st.session_state.submitted:
     # ── SUBMIT ────────────────────────────────────────────────────────────────
     if st.button("✦ Złóż zamówienie"):
         errors = []
-        if not imie.strip(): errors.append("Podaj imię i nazwisko.")
-        if not telefon.strip(): errors.append("Podaj numer telefonu.")
-        if not email.strip() or "@" not in email: errors.append("Podaj poprawny adres e-mail.")
-        if not fillings: errors.append("Wybierz co najmniej jedno nadzienie.")
+        if not imie.strip():
+            errors.append("Podaj imię i nazwisko.")
+        if not telefon.strip():
+            errors.append("Podaj numer telefonu.")
+        if not email.strip() or "@" not in email:
+            errors.append("Podaj poprawny adres e-mail.")
+        if not fillings:
+            errors.append("Wybierz co najmniej jedno nadzienie.")
 
+        if not date_ok:
+            errors.append("Wybierz dostępną datę odbioru.")
         if errors:
-            for e in errors: st.error(f"⚠️ {e}")
+            for e in errors:
+                st.error(f"⚠️ {e}")
         else:
-            dane_do_zapisu = [
-                st.session_state.order_id, imie, telefon, email, str(odbiór),
-                tier, porcje, floors, sponge, ", ".join(fillings),
-                decoration, kolor.split(" (")[0], ", ".join(extras),
-                napis, is_gluten, is_vegan, price, inspiracje
-            ]
-
-            order_data = {
+            order = {
                 "id": st.session_state.order_id,
-                "imie": imie, "telefon": telefon, "email": email,
-                "odbiór": str(odbiór), "tier": tier, "porcje": porcje,
-                "floors": floors, "sponge": sponge, "fillings": fillings,
-                "decoration": decoration, "kolor": kolor.split(" (")[0],
-                "extras": extras, "napis": napis, "gluten_free": is_gluten,
-                "vegan": is_vegan, "price": price, "inspiracje": inspiracje
+                "imie": imie,
+                "telefon": telefon,
+                "email": email,
+                "odbiór": str(odbiór),
+                "tier": tier,
+                "porcje": porcje,
+                "floors": floors,
+                "sponge": sponge,
+                "fillings": fillings,
+                "decoration": decoration,
+                "kolor": kolor.split(" (")[0],
+                "extras": extras,
+                "napis": napis,
+                "gluten_free": is_gluten,
+                "vegan": is_vegan,
+                "inspiracje": inspiracje,
+                "price": price,
             }
+            st.session_state.order_data = order
 
-            try:
-                client = get_gspread_client()
-                sheet = client.open("Baza_Zamowien").worksheet("Arkusz1")
-                wszystkie_dane = sheet.get_all_values()
-                nastepny_wiersz = len(wszystkie_dane) + 1
-                sheet.insert_row(dane_do_zapisu, nastepny_wiersz, value_input_option='USER_ENTERED')
+            # ── INTEGRACJE ────────────────────────────────────────
+            with st.spinner("Zapisujemy zamówienie..."):
+                sheets_ok = save_to_sheets(order)
+                email_ok  = send_confirmation_emails(order)
 
-                send_email(order_data)
-
-                st.session_state.order_data = order_data
-                st.session_state.submitted = True
-                st.rerun()
-
-            except Exception as e:
-                st.error(f"❌ Błąd podczas zapisu lub wysyłki: {e}")
+            st.session_state.submitted = True
+            st.session_state.sheets_ok = sheets_ok
+            st.session_state.email_ok  = email_ok
+            st.rerun()
 
 # ─── SUCCESS ──────────────────────────────────────────────────────────────────
 else:
@@ -781,42 +600,60 @@ else:
     <div class="success-box">
         <div style="font-size:3rem;margin-bottom:0.6rem">🎂</div>
         <h2>Zamówienie złożone!</h2>
-        <div style="background:rgba(255,255,255,0.07);border-radius:3px;padding:0.7rem 1.5rem;display:inline-block;margin-top:1.2rem;">
-            <div style="font-size:0.6rem;letter-spacing:0.28em;opacity:0.5;text-transform:uppercase;">Numer zamówienia</div>
-            <div style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:#DEC08A;">{d.get("id")}</div>
+        <p style="opacity:0.75;font-size:0.95rem;margin-top:0.5rem">
+            Skontaktujemy się z Tobą w ciągu 24 godzin, aby potwierdzić szczegóły.
+        </p>
+        <div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:0.7rem 1.5rem;display:inline-block;margin-top:1.2rem;">
+            <div style="font-size:0.65rem;letter-spacing:0.25em;opacity:0.6;text-transform:uppercase;">Numer zamówienia</div>
+            <div style="font-family:'Cormorant Garamond',serif;font-size:2rem;font-weight:300;color:#A8F0AA;">{d["id"]}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("""<div class="section-card"><div class="section-title"><span class="section-num">✓</span> Podsumowanie</div>""", unsafe_allow_html=True)
+
+    st.markdown("""<div class="section-card">
+        <div class="section-title"><span class="section-num">✓</span> Podsumowanie zamówienia</div>
+    """, unsafe_allow_html=True)
 
     rows = [
-        ("Klient", d.get("imie")), ("Telefon", d.get("telefon")), ("E-mail", d.get("email")),
-        ("Data odbioru", d.get("odbiór")), ("Seria tortu", d.get("tier")),
-        ("Porcje", f'{d.get("porcje")} szt.'), ("Piętra", str(d.get("floors"))),
-        ("Biszkopt", d.get("sponge")), ("Nadzienie", ", ".join(d.get("fillings", []))),
-        ("Dekoracja", d.get("decoration")), ("Paleta kolorów", d.get("kolor")),
-        ("Dodatki", ", ".join(d.get("extras", [])) if d.get("extras") else "—"),
-        ("Napis", d.get("napis") if d.get("napis") else "—"),
-        ("Bez glutenu", "Tak" if d.get("gluten_free") else "Nie"),
-        ("Wegańskie", "Tak" if d.get("vegan") else "Nie"),
+        ("Klient", d["imie"]),
+        ("Telefon", d["telefon"]),
+        ("E-mail", d["email"]),
+        ("Data odbioru", d["odbiór"]),
+        ("Seria tortu", d["tier"]),
+        ("Porcje", f'{d["porcje"]} szt.'),
+        ("Piętra", str(d["floors"])),
+        ("Biszkopt", d["sponge"]),
+        ("Nadzienie", ", ".join(d["fillings"])),
+        ("Dekoracja", d["decoration"]),
+        ("Paleta kolorów", d["kolor"]),
+        ("Dodatki", ", ".join(d["extras"]) if d["extras"] else "—"),
+        ("Napis", d["napis"] if d["napis"] else "—"),
+        ("Bez glutenu", "Tak" if d["gluten_free"] else "Nie"),
+        ("Wegańskie", "Tak" if d["vegan"] else "Nie"),
     ]
 
-    for k, v in rows:
-        st.markdown(f'<div class="summary-row"><span class="summary-key">{k}</span><span class="summary-val">{v}</span></div>', unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    rows_html = "".join(
+        f'<div class="summary-row"><span class="summary-key">{k}</span><span class="summary-val">{v}</span></div>'
+        for k, v in rows
+    )
+    st.markdown(rows_html + "</div>", unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="price-box">
         <div class="price-label">Szacunkowa cena</div>
-        <div class="price-value">{fmt_price(d.get("price", 0.0))}</div>
+        <div class="price-value">{fmt_price(d["price"])}</div>
+        <div class="price-sub">Ostateczna kwota zostanie potwierdzona telefonicznie</div>
     </div>
     """, unsafe_allow_html=True)
 
     if d.get("inspiracje"):
-        st.markdown(f'<div class="info-box">💬 <strong>Uwagi:</strong> {d.get("inspiracje")}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="info-box">💬 <strong>Uwagi klienta:</strong> {d["inspiracje"]}</div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
 
     if st.button("↩ Złóż nowe zamówienie"):
-        for key in ["submitted", "order_id", "order_data"]: st.session_state.pop(key, None)
+        for key in ["submitted", "order_id", "order_data"]:
+            st.session_state.pop(key, None)
         st.rerun()
