@@ -4,6 +4,21 @@ import random
 import json
 from pathlib import Path
 from integrations import save_to_sheets, send_confirmation_emails
+from upstash_redis import Redis
+
+# Łączymy się z bazą (dane pobieramy z secrets Streamlit)
+redis = Redis(
+    url=st.secrets["UPSTASH_REDIS_REST_URL"], 
+    token=st.secrets["UPSTASH_REDIS_REST_TOKEN"]
+)
+
+# FUNKCJA DO ZAPISYWANIA ZAMÓWIENIA W REDIS
+def save_order_to_redis(order_data):
+    order_id = order_data['id']
+    # Zapisujemy jako JSON na 30 dni (żeby nie zaśmiecać bazy wiecznie)
+    redis.set(f"order:{order_id}", json.dumps(order_data), ex=2592000)
+    # Dodajemy ID do listy wszystkich zamówień
+    redis.lpush("all_orders", order_id)
 
 # ─── BLOCKED DATES STORAGE ───────────────────────────────────────────────────
 BLOCKED_DATES_FILE = Path(__file__).parent / "blocked_dates.json"
