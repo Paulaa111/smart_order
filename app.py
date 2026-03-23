@@ -6,6 +6,12 @@ from pathlib import Path
 from integrations import save_to_sheets, send_confirmation_emails
 from upstash_redis import Redis
 
+# Łączymy się z bazą używając danych z Secrets
+redis = Redis(
+    url=st.secrets["UPSTASH_REDIS_REST_URL"], 
+    token=st.secrets["UPSTASH_REDIS_REST_TOKEN"]
+)
+
 
 # ─── BLOCKED DATES STORAGE ───────────────────────────────────────────────────
 BLOCKED_DATES_FILE = Path(__file__).parent / "blocked_dates.json"
