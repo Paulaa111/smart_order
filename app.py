@@ -14,7 +14,7 @@ def load_blocked_dates() -> list:
     if BLOCKED_DATES_FILE.exists():
         with open(BLOCKED_DATES_FILE) as f:
             return json.load(f)
-    return []ini
+    return []
 
 def save_blocked_dates(dates: list):
     with open(BLOCKED_DATES_FILE, "w") as f:
