@@ -335,6 +335,9 @@ if st.button("✦ Złóż zamówienie"):
 
 # ─── ELEGANCKIE PODSUMOWANIE (Zamiast Success Screen z balonami) ──────────────
 else:
+    if "order_data" not in st.session_state:
+        st.session_state.submitted = False
+        st.rerun()
     d = st.session_state.order_data
     
     # Nagłówek bez balonów
