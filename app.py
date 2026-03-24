@@ -29,7 +29,7 @@ st.set_page_config(
     page_title="Sweet Order · Cukiernia",
     page_icon="🎂",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ html, body, [data-testid="stAppViewContainer"] {
 
 [data-testid="stHeader"] { background: transparent !important; }
 /* sidebar visible for admin */
-#MainMenu, footer { visibility: hidden; }
+#MainMenu, footer, header { visibility: hidden; }
 
 .block-container {
     max-width: 1100px !important;
@@ -383,6 +383,81 @@ with st.sidebar:
                         blocked.remove(d_str)
                         save_blocked_dates(blocked)
                         st.rerun()
+
+        st.markdown("---")
+
+        # ── WIDOK TYGODNIOWY ──────────────────────────────────────────────────
+        st.markdown("#### 📅 Tydzień w cukierni")
+        try:
+            from integrations import get_sheets_client
+            gc = get_sheets_client()
+            sheet_id = st.secrets["google_sheets"]["spreadsheet_id"]
+            sh = gc.open_by_key(sheet_id)
+            ws = sh.sheet1
+            all_rows = ws.get_all_records()
+
+            today = date.today()
+            week_start = today - timedelta(days=today.weekday())
+            week_end = week_start + timedelta(days=6)
+
+            week_orders = []
+            for row in all_rows:
+                try:
+                    pickup = datetime.strptime(row.get("Data odbioru", ""), "%Y-%m-%d").date()
+                    if week_start <= pickup <= week_end:
+                        week_orders.append(row)
+                except:
+                    pass
+
+            if week_orders:
+                for row in sorted(week_orders, key=lambda x: x.get("Data odbioru", "")):
+                    pickup = datetime.strptime(row["Data odbioru"], "%Y-%m-%d").date()
+                    day_name = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nd"][pickup.weekday()]
+                    st.markdown(f"""
+                    <div style="background:rgba(200,149,108,0.08);border-radius:10px;
+                        padding:0.6rem 0.8rem;margin-bottom:0.4rem;border-left:3px solid #C8956C">
+                        <div style="font-size:0.7rem;color:#C8956C;font-weight:600">{day_name} {pickup.strftime('%d.%m')}</div>
+                        <div style="font-size:0.85rem;font-weight:600;color:#2C1A0E">{row.get('Imię i nazwisko','')}</div>
+                        <div style="font-size:0.75rem;color:#7A5C45">{row.get('Seria tortu','')} · {row.get('Porcje','')} porcji · {row.get('Cena (zł)',''):.0f} zł</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("Brak zamówień w tym tygodniu")
+        except Exception as e:
+            st.warning(f"Błąd pobierania: {e}")
+
+        st.markdown("---")
+
+        # ── OSTATNIE ZAMÓWIENIA ───────────────────────────────────────────────
+        st.markdown("#### 📋 Ostatnie zamówienia")
+        try:
+            all_rows = ws.get_all_records()
+            last_orders = list(reversed(all_rows[-10:])) if all_rows else []
+            if last_orders:
+                for row in last_orders:
+                    status_color = "#4CAF7D"
+                    st.markdown(f"""
+                    <div style="background:white;border-radius:10px;padding:0.7rem 0.9rem;
+                        margin-bottom:0.5rem;border:1px solid rgba(200,149,108,0.2);
+                        box-shadow:0 2px 8px rgba(44,26,14,0.05)">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <div style="font-size:0.7rem;color:#C8956C;font-weight:600">
+                                {row.get('ID zamówienia','')}</div>
+                            <div style="font-size:0.7rem;color:#7A5C45">
+                                {row.get('Data odbioru','')}</div>
+                        </div>
+                        <div style="font-size:0.85rem;font-weight:600;color:#2C1A0E;margin-top:0.2rem">
+                            {row.get('Imię i nazwisko','')}</div>
+                        <div style="font-size:0.75rem;color:#7A5C45">
+                            {row.get('Seria tortu','')} · {row.get('Porcje','')} porcji</div>
+                        <div style="font-size:0.75rem;color:#7A5C45">
+                            📞 {row.get('Telefon','')}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("Brak zamówień")
+        except Exception as e:
+            st.warning(f"Błąd: {e}")
 
         st.markdown("---")
         if st.button("🚪 Wyloguj", use_container_width=True):
