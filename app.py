@@ -14,7 +14,7 @@ def load_blocked_dates() -> list:
     if BLOCKED_DATES_FILE.exists():
         with open(BLOCKED_DATES_FILE) as f:
             return json.load(f)
-    return []
+    return []ini
 
 def save_blocked_dates(dates: list):
     with open(BLOCKED_DATES_FILE, "w") as f:
@@ -29,7 +29,7 @@ st.set_page_config(
     page_title="Sweet Order · Cukiernia",
     page_icon="🎂",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
