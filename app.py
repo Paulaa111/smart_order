@@ -1,28 +1,45 @@
 import streamlit as st
 from datetime import datetime, timedelta, date
 import random
-import json
-from pathlib import Path
-from integrations import save_to_sheets, send_confirmation_emails
+from integrations import save_to_sheets, send_confirmation_emails, get_sheets_client
 
 
 
-# ─── BLOCKED DATES STORAGE ───────────────────────────────────────────────────
-BLOCKED_DATES_FILE = Path(__file__).parent / "blocked_dates.json"
+# ─── BLOCKED DATES STORAGE (Google Sheets) ───────────────────────────────────
+
+def _get_blocked_ws():
+    """Zwraca arkusz 'Zablokowane daty' — tworzy jeśli nie istnieje."""
+    gc = get_sheets_client()
+    sheet_id = st.secrets["google_sheets"]["spreadsheet_id"]
+    sh = gc.open_by_key(sheet_id)
+    try:
+        return sh.worksheet("Zablokowane daty")
+    except:
+        ws = sh.add_worksheet(title="Zablokowane daty", rows=500, cols=2)
+        ws.insert_row(["Data (YYYY-MM-DD)", "Dodano"], 1)
+        return ws
 
 def load_blocked_dates() -> list:
-    if BLOCKED_DATES_FILE.exists():
-        with open(BLOCKED_DATES_FILE) as f:
-            return json.load(f)
-    return []
+    try:
+        ws = _get_blocked_ws()
+        records = ws.get_all_records()
+        return [str(r["Data (YYYY-MM-DD)"]) for r in records if r.get("Data (YYYY-MM-DD)")]
+    except:
+        return []
 
 def save_blocked_dates(dates: list):
-    with open(BLOCKED_DATES_FILE, "w") as f:
-        json.dump(dates, f)
+    """Nadpisuje całą listę zablokowanych dat w Sheets."""
+    try:
+        ws = _get_blocked_ws()
+        ws.clear()
+        ws.insert_row(["Data (YYYY-MM-DD)", "Dodano"], 1)
+        for d in sorted(dates):
+            ws.append_row([d, datetime.now().strftime("%Y-%m-%d %H:%M")])
+    except Exception as e:
+        st.warning(f"⚠️ Błąd zapisu dat: {e}")
 
 def is_date_blocked(d) -> bool:
-    blocked = load_blocked_dates()
-    return str(d) in blocked
+    return str(d) in load_blocked_dates()
 
 # ─── PAGE CONFIG ─────────────────────────────────────────────────────────────
 st.set_page_config(
