@@ -29,7 +29,7 @@ st.set_page_config(
     page_title="Sweet Order · Cukiernia",
     page_icon="🎂",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ─── GLOBAL CSS ───────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ html, body, [data-testid="stAppViewContainer"] {
 
 [data-testid="stHeader"] { background: transparent !important; }
 /* sidebar visible for admin */
-#MainMenu, footer, header { visibility: hidden; }
+#MainMenu, footer { visibility: hidden; }
 
 .block-container {
     max-width: 1100px !important;
