@@ -473,8 +473,7 @@ with st.sidebar:
                         ):
                             with st.spinner("Aktualizuję status i wysyłam mail..."):
                                 sheets_ok = mark_order_ready(order_id)
-                                order_row = get_order_row_by_id(order_id)
-                                mail_ok = send_ready_email(order_row) if order_row else False
+                                mail_ok = send_ready_email(row)  # `row` już masz z pętli for — bez dodatkowego odczytu
                             if sheets_ok and mail_ok:
                                 st.success(f"✅ Gotowe! Mail wysłany do {order_row.get('E-mail','')}")
                             elif sheets_ok:
