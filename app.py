@@ -403,10 +403,20 @@ with st.sidebar:
 
         st.markdown("---")
 
+# ── Ten fragment zastępuje obie sekcje w sidebarze: ──────────────────────────
+# "📅 Tydzień w cukierni" oraz "📋 Ostatnie zamówienia"
+# Wklej go w miejsce tych sekcji wewnątrz bloku: `else:` (po zalogowaniu admina)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Import na górze integrations.py już zawiera mark_order_ready i send_ready_email,
+# więc upewnij się że import w app.py wygląda tak:
+#   from integrations import save_to_sheets, send_confirmation_emails, get_sheets_client, mark_order_ready, send_ready_email, get_order_row_by_id
+
+
         # ── WIDOK TYGODNIOWY ──────────────────────────────────────────────────
         st.markdown("#### 📅 Tydzień w cukierni")
         try:
-            from integrations import get_sheets_client
+            from integrations import get_sheets_client, mark_order_ready, send_ready_email, get_order_row_by_id
             gc = get_sheets_client()
             sheet_id = st.secrets["google_sheets"]["spreadsheet_id"]
             sh = gc.open_by_key(sheet_id)
@@ -430,14 +440,54 @@ with st.sidebar:
                 for row in sorted(week_orders, key=lambda x: x.get("Data odbioru", "")):
                     pickup = datetime.strptime(row["Data odbioru"], "%Y-%m-%d").date()
                     day_name = ["Pon", "Wt", "Śr", "Czw", "Pt", "Sob", "Nd"][pickup.weekday()]
+                    order_id = row.get("ID zamówienia", "")
+                    status = row.get("Status", "Nowe")
+                    is_done = status == "Zrealizowane"
+
+                    status_badge = (
+                        '<span style="background:#4CAF50;color:white;border-radius:6px;'
+                        'padding:2px 8px;font-size:0.65rem;font-weight:600">✓ Zrealizowane</span>'
+                        if is_done else
+                        '<span style="background:#FF9800;color:white;border-radius:6px;'
+                        'padding:2px 8px;font-size:0.65rem;font-weight:600">● Nowe</span>'
+                    )
+
                     st.markdown(f"""
                     <div style="background:rgba(200,149,108,0.08);border-radius:10px;
-                        padding:0.6rem 0.8rem;margin-bottom:0.4rem;border-left:3px solid #C8956C">
-                        <div style="font-size:0.7rem;color:#C8956C;font-weight:600">{day_name} {pickup.strftime('%d.%m')}</div>
+                        padding:0.6rem 0.8rem;margin-bottom:0.3rem;border-left:3px solid #C8956C">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <div style="font-size:0.7rem;color:#C8956C;font-weight:600">{day_name} {pickup.strftime('%d.%m')}</div>
+                            {status_badge}
+                        </div>
                         <div style="font-size:0.85rem;font-weight:600;color:#2C1A0E">{row.get('Imię i nazwisko','')}</div>
-                        <div style="font-size:0.75rem;color:#7A5C45">{row.get('Seria tortu','')} · {row.get('Porcje','')} porcji · {row.get('Cena (zł)',''):.0f} zł</div>
+                        <div style="font-size:0.75rem;color:#7A5C45">{row.get('Seria tortu','')} · {row.get('Porcje','')} porcji · {row.get('Cena (zł)', 0):.0f} zł</div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                    if not is_done:
+                        if st.button(
+                            "✅ Zrealizowane",
+                            key=f"ready_week_{order_id}",
+                            use_container_width=True,
+                            help=f"Oznacz zamówienie {order_id} jako gotowe i wyślij mail do klienta"
+                        ):
+                            with st.spinner("Aktualizuję status i wysyłam mail..."):
+                                sheets_ok = mark_order_ready(order_id)
+                                order_row = get_order_row_by_id(order_id)
+                                mail_ok = send_ready_email(order_row) if order_row else False
+                            if sheets_ok and mail_ok:
+                                st.success(f"✅ Gotowe! Mail wysłany do {order_row.get('E-mail','')}")
+                            elif sheets_ok:
+                                st.warning("Status zaktualizowany, ale mail nie dotarł.")
+                            else:
+                                st.error("Błąd aktualizacji statusu.")
+                            st.rerun()
+                    else:
+                        st.markdown(
+                            '<div style="text-align:center;font-size:0.75rem;color:#4CAF50;'
+                            'padding:4px 0 8px">Mail wysłany ✓</div>',
+                            unsafe_allow_html=True
+                        )
             else:
                 st.info("Brak zamówień w tym tygodniu")
         except Exception as e:
@@ -452,18 +502,26 @@ with st.sidebar:
             last_orders = list(reversed(all_rows[-10:])) if all_rows else []
             if last_orders:
                 for row in last_orders:
-                    status_color = "#4CAF7D"
+                    order_id = row.get("ID zamówienia", "")
+                    status = row.get("Status", "Nowe")
+                    is_done = status == "Zrealizowane"
+
+                    status_color = "#4CAF50" if is_done else "#FF9800"
+                    status_label = "✓ Zrealizowane" if is_done else "● Nowe"
+
                     st.markdown(f"""
                     <div style="background:white;border-radius:10px;padding:0.7rem 0.9rem;
                         margin-bottom:0.5rem;border:1px solid rgba(200,149,108,0.2);
                         box-shadow:0 2px 8px rgba(44,26,14,0.05)">
                         <div style="display:flex;justify-content:space-between;align-items:center">
                             <div style="font-size:0.7rem;color:#C8956C;font-weight:600">
-                                {row.get('ID zamówienia','')}</div>
-                            <div style="font-size:0.7rem;color:#7A5C45">
-                                {row.get('Data odbioru','')}</div>
+                                {order_id}</div>
+                            <div style="font-size:0.65rem;color:{status_color};font-weight:600">
+                                {status_label}</div>
                         </div>
-                        <div style="font-size:0.85rem;font-weight:600;color:#2C1A0E;margin-top:0.2rem">
+                        <div style="font-size:0.7rem;color:#7A5C45;margin-bottom:2px">
+                            {row.get('Data odbioru','')}</div>
+                        <div style="font-size:0.85rem;font-weight:600;color:#2C1A0E">
                             {row.get('Imię i nazwisko','')}</div>
                         <div style="font-size:0.75rem;color:#7A5C45">
                             {row.get('Seria tortu','')} · {row.get('Porcje','')} porcji</div>
@@ -471,10 +529,28 @@ with st.sidebar:
                             📞 {row.get('Telefon','')}</div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                    if not is_done:
+                        if st.button(
+                            "✅ Oznacz jako zrealizowane",
+                            key=f"ready_last_{order_id}",
+                            use_container_width=True,
+                        ):
+                            with st.spinner("Aktualizuję..."):
+                                sheets_ok = mark_order_ready(order_id)
+                                order_row = get_order_row_by_id(order_id)
+                                mail_ok = send_ready_email(order_row) if order_row else False
+                            if sheets_ok and mail_ok:
+                                st.success(f"✅ Mail wysłany do klienta!")
+                            elif sheets_ok:
+                                st.warning("Status OK, błąd maila.")
+                            else:
+                                st.error("Błąd aktualizacji.")
+                            st.rerun()
             else:
                 st.info("Brak zamówień")
         except Exception as e:
-            st.warning(f"Błąd: {e}")
+            st.warning(f"Błąd: {e}")        
 
         st.markdown("---")
         if st.button("🚪 Wyloguj", use_container_width=True):
